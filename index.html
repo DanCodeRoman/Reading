@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kindergarten Reading Buddy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0f9ff;
+            touch-action: manipulation;
+        }
+
+        .word-span {
+            transition: color 0.3s ease, transform 0.2s ease;
+            display: inline-block;
+            margin-right: 0.25em;
+        }
+
+        .word-pending {
+            color: #1f2937; /* Gray-800 */
+        }
+
+        .word-correct {
+            color: #16a34a; /* Green-600 */
+            transform: scale(1.1);
+        }
+
+        .word-wrong {
+            color: #dc2626; /* Red-600 */
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Success Animations */
+        @keyframes flashGreen {
+            0% { background-color: white; }
+            50% { background-color: #dcfce7; } /* Light Green */
+            100% { background-color: white; }
+        }
+
+        .flash-success {
+            animation: flashGreen 0.6s ease-in-out;
+        }
+
+        @keyframes zoomOut {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        @keyframes zoomIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-exit {
+            animation: zoomOut 0.5s forwards;
+        }
+
+        .animate-enter {
+            animation: zoomIn 0.5s forwards;
+        }
+
+        .mic-pulse {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        
+        .cursor-pointer {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col items-center justify-center overflow-hidden">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="text-center p-6 bg-white rounded-3xl shadow-xl max-w-md w-full mx-4 border-4 border-blue-200">
+        <h1 class="text-4xl font-bold text-blue-600 mb-6">Reading Buddy</h1>
+        <p class="text-gray-600 mb-8 text-xl">Let's practice reading together! Can you read all 75 sentences?</p>
+        <button onclick="startGame()" class="bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105">
+            Start Reading
+        </button>
+        <p class="mt-4 text-sm text-gray-400">Requires microphone access</p>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden flex-col items-center justify-center w-full max-w-4xl px-4">
+        
+        <!-- Progress -->
+        <div class="mb-8 w-full max-w-md">
+            <div class="flex justify-between text-blue-600 font-bold text-lg mb-2">
+                <span>Sentence <span id="current-count">1</span>/75</span>
+                <span id="streak-counter">⭐ 0</span>
+            </div>
+            <div class="h-4 bg-blue-100 rounded-full overflow-hidden border border-blue-200">
+                <div id="progress-bar" class="h-full bg-green-500 transition-all duration-500" style="width: 1%"></div>
+            </div>
+        </div>
+
+        <!-- Sentence Container -->
+        <div id="card-container" class="bg-white rounded-3xl shadow-2xl p-8 w-full min-h-[300px] flex items-center justify-center border-4 border-blue-100 relative">
+            <div id="sentence-display" class="text-4xl md:text-6xl font-bold text-center leading-relaxed">
+                <!-- Words injected here -->
+            </div>
+        </div>
+
+        <!-- Controls / Status -->
+        <div class="mt-10 flex flex-col items-center">
+            <!-- Added onclick and cursor-pointer to allow manual restart -->
+            <div id="mic-status" onclick="toggleMic()" class="cursor-pointer bg-red-100 text-red-600 px-6 py-3 rounded-full flex items-center gap-3 font-bold transition-all hover:scale-105 shadow-sm select-none">
+                <div class="w-4 h-4 bg-red-500 rounded-full mic-pulse"></div>
+                Listening...
+            </div>
+            <p class="text-xs text-gray-400 mt-2 font-medium">(Tap the button above if mic stops)</p>
+            <p id="feedback-text" class="mt-4 text-gray-400 h-6 text-lg font-medium"></p>
+            
+            <button onclick="skipSentence()" class="mt-6 text-gray-400 hover:text-gray-600 underline text-sm">
+                Skip this sentence
+            </button>
+        </div>
+    </div>
+
+    <!-- Completion Screen -->
+    <div id="end-screen" class="hidden text-center p-6 bg-white rounded-3xl shadow-xl max-w-md w-full mx-4 border-4 border-green-200">
+        <h1 class="text-5xl font-bold text-green-600 mb-6">Great Job! 🎉</h1>
+        <p class="text-gray-600 mb-8 text-xl">You read all 75 sentences! You are a superstar reader.</p>
+        <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105">
+            Read Again
+        </button>
+    </div>
+
+    <script>
+        // --- Data: 75 Simple Sentences ---
+        const sentences = [
+            "I see a cat.", "The dog runs.", "The sun is hot.", "I like pizza.", "The sky is blue.",
+            "I have a ball.", "She is my mom.", "He is my dad.", "The cat sleeps.", "I can jump.",
+            "The bird can fly.", "I see a big bus.", "The grass is green.", "I love to play.", "Look at the moon.",
+            "I have two hands.", "The fish can swim.", "The car is red.", "I eat an apple.", "It is raining.",
+            "I see a cow.", "The pig is pink.", "I like ice cream.", "We go to school.", "The book is fun.",
+            "I see a star.", "The baby cries.", "I wash my hands.", "The tree is tall.", "I have a toy.",
+            "The flower is red.", "I see a little ant.", "The duck says quack.", "I put on my shoes.", "We play tag.",
+            "The horse runs fast.", "I drink milk.", "The owl has big eyes.", "I see a spider.", "The box is empty.",
+            "My bag is heavy.", "I like the snow.", "The fire is hot.", "I brush my teeth.", "The bee can buzz.",
+            "I see a green frog.", "The bear is big.", "I can ride my bike.", "The soup is hot.", "I sit on a chair.",
+            "The door is open.", "I see a white cloud.", "The kite flies high.", "I hug my teddy.", "The train goes choo.",
+            "I draw a picture.", "The mouse is small.", "I help my friends.", "The water is cold.", "I see a yellow sun.",
+            "The leaves fall down.", "I make a sand castle.", "The lion roars.", "I clean my room.", "The snake is long.",
+            "I clap my hands.", "The turtle is slow.", "I smile at you.", "The wind blows.", "I like to dance.",
+            "The stars shine bright.", "I read a book.", "The boat floats.", "I am happy today.", "Good night sleep tight."
+        ];
+
+        // --- State Variables ---
+        let currentIndex = 0;
+        let currentWordIndex = 0; // Which word in the sentence are we waiting for?
+        let recognition;
+        let isListening = false;
+        let streak = 0;
+        let permissionDenied = false;
+
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const sentenceDisplay = document.getElementById('sentence-display');
+        const progressBar = document.getElementById('progress-bar');
+        const currentCount = document.getElementById('current-count');
+        const cardContainer = document.getElementById('card-container');
+        const feedbackText = document.getElementById('feedback-text');
+        const micStatus = document.getElementById('mic-status');
+
+        // --- Initialization ---
+        function startGame() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert("Sorry, your browser doesn't support speech recognition. Please try Google Chrome, Edge, or Safari.");
+                return;
+            }
+
+            // Request Mic Permission via API instantiation
+            setupSpeechRecognition();
+            
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            
+            loadSentence();
+        }
+
+        function setupSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Keep listening
+            recognition.interimResults = true; // Get results as they speak
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                micStatus.classList.remove('bg-gray-200', 'text-gray-500', 'bg-yellow-100', 'text-yellow-800');
+                micStatus.classList.add('bg-red-100', 'text-red-600');
+                micStatus.innerHTML = '<div class="w-4 h-4 bg-red-500 rounded-full mic-pulse"></div> Listening...';
+            };
+
+            recognition.onerror = (event) => {
+                console.log("Speech recognition error", event.error);
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    permissionDenied = true;
+                    micStatus.innerHTML = '⚠️ Mic Access Denied';
+                    micStatus.classList.remove('bg-red-100', 'text-red-600');
+                    micStatus.classList.add('bg-yellow-100', 'text-yellow-800');
+                    alert("It looks like microphone access was denied. Please allow microphone access in your browser settings to play.");
+                }
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                
+                // FIXED: Removed auto-restart to prevent permission loops.
+                // Instead, show a manual resume button.
+                
+                if (!permissionDenied) {
+                    micStatus.classList.remove('bg-red-100', 'text-red-600');
+                    micStatus.classList.add('bg-gray-200', 'text-gray-500');
+                    micStatus.innerHTML = '🛑 Mic Off (Tap to Resume)';
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const resultIndex = event.resultIndex;
+                const transcript = event.results[resultIndex][0].transcript.trim().toLowerCase();
+                const isFinal = event.results[resultIndex].isFinal;
+
+                handleSpeechInput(transcript, isFinal);
+            };
+
+            try {
+                recognition.start();
+            } catch(e) {
+                console.log("Mic start error", e);
+            }
+        }
+
+        // --- Manual Toggle Function ---
+        function toggleMic() {
+            if (permissionDenied) return;
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                try {
+                    micStatus.innerHTML = 'Starting...';
+                    recognition.start();
+                } catch (e) {
+                    console.error("Manual start error", e);
+                }
+            }
+        }
+
+        // --- Core Logic ---
+
+        function loadSentence() {
+            // Reset State
+            currentWordIndex = 0;
+            const text = sentences[currentIndex];
+            const words = text.split(' ');
+            
+            // Build HTML for words
+            sentenceDisplay.innerHTML = '';
+            words.forEach((word, index) => {
+                const span = document.createElement('span');
+                span.textContent = word;
+                span.className = 'word-span word-pending text-5xl md:text-7xl';
+                span.dataset.clean = cleanWord(word); // Store clean version for matching
+                sentenceDisplay.appendChild(span);
+            });
+
+            // Update UI
+            currentCount.innerText = currentIndex + 1;
+            progressBar.style.width = `${((currentIndex) / sentences.length) * 100}%`;
+            feedbackText.innerText = "";
+            
+            // Animation Entry
+            sentenceDisplay.classList.remove('animate-exit');
+            sentenceDisplay.classList.add('animate-enter');
+        }
+
+        function cleanWord(word) {
+            return word.toLowerCase().replace(/[.,!?;:]/g, '');
+        }
+
+        function handleSpeechInput(transcript, isFinal) {
+            const wordSpans = document.querySelectorAll('.word-span');
+            
+            // Safety check
+            if (currentWordIndex >= wordSpans.length) return;
+
+            const targetWord = wordSpans[currentWordIndex].dataset.clean;
+            const spokenWords = transcript.split(' ');
+            
+            // We check the last spoken word against the target, or if the transcript contains the target
+            // This allows for "I... see... a... cat" pattern
+            
+            let matched = false;
+
+            // Check if the target word is anywhere in the recent transcript segment
+            // (Simple matching logic for kids)
+            if (transcript.includes(targetWord)) {
+                matched = true;
+            }
+
+            if (matched) {
+                // Success!
+                markWordCorrect(wordSpans[currentWordIndex]);
+                currentWordIndex++;
+                feedbackText.innerText = "Good job!";
+                
+                // Clear feedback text after a delay
+                setTimeout(() => feedbackText.innerText = "", 1000);
+
+                // Check for Sentence Completion
+                if (currentWordIndex >= wordSpans.length) {
+                    completeSentence();
+                }
+            } else if (isFinal) {
+                // If it was a "final" result and didn't match, give negative feedback
+                // Only if the transcript is reasonably long to avoid noise triggers
+                if(transcript.length > 1) {
+                    markWordWrong(wordSpans[currentWordIndex]);
+                    feedbackText.innerText = "Try again!";
+                }
+            }
+        }
+
+        function markWordCorrect(element) {
+            element.classList.remove('word-pending', 'word-wrong');
+            element.classList.add('word-correct');
+            // Play a soft pop sound or just rely on visuals (keeping it simple with visuals per request)
+        }
+
+        function markWordWrong(element) {
+            element.classList.add('word-wrong');
+            setTimeout(() => {
+                element.classList.remove('word-wrong');
+            }, 500);
+        }
+
+        function completeSentence() {
+            streak++;
+            document.getElementById('streak-counter').innerText = `⭐ ${streak}`;
+            
+            // Flash Green
+            cardContainer.classList.add('flash-success');
+            
+            // Play Sound (Optional, using browser synthesis for 'Great!')
+            const utterance = new SpeechSynthesisUtterance("Great!");
+            utterance.rate = 1.2;
+            window.speechSynthesis.speak(utterance);
+
+            setTimeout(() => {
+                // Zoom Out
+                sentenceDisplay.classList.remove('animate-enter');
+                sentenceDisplay.classList.add('animate-exit');
+                
+                setTimeout(() => {
+                    cardContainer.classList.remove('flash-success');
+                    nextSentence();
+                }, 500); // Wait for zoom out
+            }, 1000); // Wait for flash
+        }
+
+        function nextSentence() {
+            currentIndex++;
+            if (currentIndex < sentences.length) {
+                loadSentence();
+            } else {
+                showEndScreen();
+            }
+        }
+
+        function skipSentence() {
+            // Helper for parents/teachers or stuck recognition
+            nextSentence();
+        }
+
+        function showEndScreen() {
+            gameScreen.classList.add('hidden');
+            gameScreen.classList.remove('flex');
+            endScreen.classList.remove('hidden');
+            // Stop mic
+            if(recognition) recognition.stop();
+        }
+
+    </script>
+</body>
+</html>
