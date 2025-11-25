@@ -93,7 +93,7 @@
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-float { animation: float 3s ease-in-out infinite; }
 
-        @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes popIn { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
         .animate-pop { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
         .mic-pulse { animation: pulse-ring 2s infinite; }
@@ -112,8 +112,8 @@
             <button onclick="toggleSettings()" class="ml-2 text-2xl text-gray-500 hover:rotate-90 transition duration-500"><i class="fa-solid fa-gear"></i></button>
         </div>
         
-        <div class="text-xl font-bold text-yellow-500 bg-yellow-50 px-4 py-2 rounded-full border-2 border-yellow-200 flex items-center gap-2 shadow-sm">
-            <i class="fa-solid fa-star animate-float"></i>
+        <div id="star-container" class="text-xl font-bold text-yellow-500 bg-yellow-50 px-4 py-2 rounded-full border-2 border-yellow-200 flex items-center gap-2 shadow-sm transition-transform">
+            <i class="fa-solid fa-star"></i>
             <span id="star-display">0</span>
         </div>
 
@@ -391,7 +391,17 @@
         }
 
         function updateStars() {
-            document.getElementById('star-display').innerText = state.stars;
+            const starDisplay = document.getElementById('star-display');
+            const starContainer = document.getElementById('star-container');
+            
+            if (parseInt(starDisplay.innerText) < state.stars) {
+                // Animate on increase
+                starContainer.classList.remove('animate-pop');
+                void starContainer.offsetWidth; // Trigger reflow
+                starContainer.classList.add('animate-pop');
+            }
+            
+            starDisplay.innerText = state.stars;
             localStorage.setItem('rb_stars', state.stars);
             localStorage.setItem('rb_level', state.unlockedLevel);
         }
@@ -556,7 +566,7 @@
             const txt = document.getElementById('mic-text');
             const led = btn.querySelector('div');
 
-            btn.className = "cursor-pointer px-8 py-4 rounded-full flex items-center gap-3 font-bold text-xl hover:scale-105 transition shadow-lg border-2 border-transparent transition-colors duration-300";
+            btn.className = "cursor-pointer px-8 py-4 rounded-full flex items-center gap-3 font-bold text-xl hover:scale-105 transition shadow-lg border-2 border-red-200 transition-colors duration-300";
             led.className = "w-5 h-5 rounded-full";
 
             if (status === 'listening') {
