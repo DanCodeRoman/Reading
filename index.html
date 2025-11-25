@@ -32,7 +32,8 @@
             /* UPDATED: Faster transition for snappier feedback */
             transition: color 0.1s ease, transform 0.1s ease;
             display: inline-block;
-            margin-right: 0.25em;
+            /* UPDATED: Increased margin for better spacing between words */
+            margin-right: 0.4em;
         }
         .word-pending { color: #374151; opacity: 0.8; }
         .word-correct { color: #16a34a; transform: scale(1.15); font-weight: 600; }
@@ -596,42 +597,29 @@
             
             const spans = document.querySelectorAll('.word-span');
             
-            // Loop to catch up multiple words in one breath
-            // This fixes latency: if the transcript has 3 correct words, we mark all 3 immediately
-            let keepChecking = true;
+            // UPDATED: Reverted to strict one-by-one checking.
+            // Removed the while loop that caught up multiple words at once.
             
-            while (keepChecking && currentSession.wordIndex < spans.length) {
-                const el = spans[currentSession.wordIndex];
-                const target = el.dataset.clean;
+            if (currentSession.wordIndex >= spans.length) return;
 
-                // Simple 'includes' check is robust for kids' vocabulary
-                if (transcript.includes(target)) {
-                    // Match found!
-                    if (!el.classList.contains('word-correct')) {
-                         el.classList.remove('word-pending', 'word-wrong');
-                         el.classList.add('word-correct');
-                         currentSession.wordIndex++;
-                         
-                         // Check for sentence completion immediately
-                         if (currentSession.wordIndex >= spans.length) {
-                             sentenceSuccess();
-                             keepChecking = false; 
-                             return; // Exit function immediately on win
-                         }
-                    } else {
-                        // Safe increment if state got desynced
+            const el = spans[currentSession.wordIndex];
+            const target = el.dataset.clean;
+
+            // Simple check: does the current transcript contain the word we are looking for next?
+            if (transcript.includes(target)) {
+                // Success!
+                if (!el.classList.contains('word-correct')) {
+                        el.classList.remove('word-pending', 'word-wrong');
+                        el.classList.add('word-correct');
                         currentSession.wordIndex++;
-                    }
-                } else {
-                    // Next word not found yet, stop lookahead
-                    keepChecking = false;
+                        
+                        // Check for Sentence Completion
+                        if (currentSession.wordIndex >= spans.length) {
+                            sentenceSuccess();
+                        }
                 }
-            }
-
-            // Error handling (only on final results to avoid flickering red on partials)
-            if (isFinal && currentSession.wordIndex < spans.length) {
-                // If final result comes in and still doesn't match the current word
-                const el = spans[currentSession.wordIndex];
+            } else if (isFinal && transcript.length > 1) {
+                // Only give negative feedback on final results to avoid flashing during pauses
                 el.classList.add('word-wrong');
                 setTimeout(() => el.classList.remove('word-wrong'), 500);
             }
