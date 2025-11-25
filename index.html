@@ -3,35 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kindergarten Reading Buddy</title>
+    <title>Reading Adventure World</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        body {
-            font-family: 'Fredoka', sans-serif;
-            background-color: #f0f9ff;
-            touch-action: manipulation;
+        /* --- Global & Theme Variables --- */
+        :root {
+            --bg-color: #f0f9ff;
+            --primary-color: #3b82f6;
+            --secondary-color: #60a5fa;
+            --accent-color: #fbbf24;
+            --text-color: #1f2937;
         }
 
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            touch-action: manipulation;
+            transition: background-color 0.5s ease;
+            overflow: hidden; /* App handles scrolling */
+        }
+
+        /* --- Text Effects --- */
         .word-span {
             transition: color 0.3s ease, transform 0.2s ease;
             display: inline-block;
             margin-right: 0.25em;
         }
-
-        .word-pending {
-            color: #1f2937; /* Gray-800 */
-        }
-
-        .word-correct {
-            color: #16a34a; /* Green-600 */
-            transform: scale(1.1);
-        }
-
-        .word-wrong {
-            color: #dc2626; /* Red-600 */
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-        }
+        .word-pending { color: #374151; opacity: 0.8; }
+        .word-correct { color: #16a34a; transform: scale(1.15); font-weight: 600; }
+        .word-wrong { color: #dc2626; animation: shake 0.5s both; }
 
         @keyframes shake {
             10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -40,366 +44,867 @@
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
-        /* Success Animations */
-        @keyframes flashGreen {
-            0% { background-color: white; }
-            50% { background-color: #dcfce7; } /* Light Green */
-            100% { background-color: white; }
-        }
-
-        .flash-success {
-            animation: flashGreen 0.6s ease-in-out;
-        }
-
-        @keyframes zoomOut {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-
-        @keyframes zoomIn {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .animate-exit {
-            animation: zoomOut 0.5s forwards;
-        }
-
-        .animate-enter {
-            animation: zoomIn 0.5s forwards;
-        }
-
-        .mic-pulse {
-            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        /* --- Level Path Visuals --- */
+        .path-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: 100px;
         }
         
-        .cursor-pointer {
+        .level-node {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: white;
+            border: 4px solid var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+            transition: transform 0.2s;
             cursor: pointer;
+            margin-bottom: 60px;
         }
+
+        .level-node:hover { transform: scale(1.1); }
+        .level-node.locked { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; border-color: #9ca3af; }
+        .level-node.completed { border-color: #16a34a; color: #16a34a; }
+        
+        /* Dashed Line Connector */
+        .path-line {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: repeating-linear-gradient(to bottom, #cbd5e1 0, #cbd5e1 10px, transparent 10px, transparent 20px);
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+
+        /* Zig Zag Layout Logic using nth-child handled in JS rendering or specific classes */
+
+        /* --- Animations --- */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+
+        @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .animate-pop { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        .mic-pulse { animation: pulse-ring 2s infinite; }
+        @keyframes pulse-ring { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
+        /* --- Game Canvas --- */
+        canvas { background: #fff; border-radius: 1rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); touch-action: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col items-center justify-center overflow-hidden">
+<body class="h-screen w-screen overflow-hidden flex flex-col">
 
-    <!-- Start Screen -->
-    <div id="start-screen" class="text-center p-6 bg-white rounded-3xl shadow-xl max-w-md w-full mx-4 border-4 border-blue-200">
-        <h1 class="text-4xl font-bold text-blue-600 mb-6">Reading Buddy</h1>
-        <p class="text-gray-600 mb-8 text-xl">Let's practice reading together! Can you read all 75 sentences?</p>
-        <button onclick="startGame()" class="bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105">
-            Start Reading
-        </button>
-        <p class="mt-4 text-sm text-gray-400">Requires microphone access</p>
-    </div>
-
-    <!-- Game Screen -->
-    <div id="game-screen" class="hidden flex-col items-center justify-center w-full max-w-4xl px-4">
+    <!-- Top Navigation Bar -->
+    <nav class="flex justify-between items-center p-4 bg-white/80 backdrop-blur shadow-sm z-50 h-20 shrink-0">
+        <div class="flex items-center gap-2">
+            <button onclick="showScreen('home')" class="text-2xl text-blue-500 hover:scale-110 transition"><i class="fa-solid fa-house"></i></button>
+            <button onclick="toggleSettings()" class="ml-2 text-2xl text-gray-500 hover:rotate-90 transition duration-500"><i class="fa-solid fa-gear"></i></button>
+        </div>
         
-        <!-- Progress -->
-        <div class="mb-8 w-full max-w-md">
-            <div class="flex justify-between text-blue-600 font-bold text-lg mb-2">
-                <span>Sentence <span id="current-count">1</span>/75</span>
-                <span id="streak-counter">⭐ 0</span>
-            </div>
-            <div class="h-4 bg-blue-100 rounded-full overflow-hidden border border-blue-200">
-                <div id="progress-bar" class="h-full bg-green-500 transition-all duration-500" style="width: 1%"></div>
-            </div>
+        <div class="text-xl font-bold text-yellow-500 bg-yellow-50 px-4 py-2 rounded-full border-2 border-yellow-200 flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-star animate-float"></i>
+            <span id="star-display">0</span>
         </div>
 
-        <!-- Sentence Container -->
-        <div id="card-container" class="bg-white rounded-3xl shadow-2xl p-8 w-full min-h-[300px] flex items-center justify-center border-4 border-blue-100 relative">
-            <div id="sentence-display" class="text-4xl md:text-6xl font-bold text-center leading-relaxed">
-                <!-- Words injected here -->
-            </div>
-        </div>
+        <button onclick="openShop()" class="bg-gradient-to-r from-purple-400 to-pink-400 text-white px-6 py-2 rounded-full font-bold shadow-md hover:scale-105 transition flex items-center gap-2 border-2 border-white">
+            <i class="fa-solid fa-gamepad"></i> Arcade
+        </button>
+    </nav>
 
-        <!-- Controls / Status -->
-        <div class="mt-10 flex flex-col items-center">
-            <!-- Added onclick and cursor-pointer to allow manual restart -->
-            <div id="mic-status" onclick="toggleMic()" class="cursor-pointer bg-red-100 text-red-600 px-6 py-3 rounded-full flex items-center gap-3 font-bold transition-all hover:scale-105 shadow-sm select-none">
-                <div class="w-4 h-4 bg-red-500 rounded-full mic-pulse"></div>
-                Listening...
+    <!-- Main Content Area -->
+    <main id="main-container" class="flex-1 relative overflow-hidden">
+        
+        <!-- SCREENS -->
+
+        <!-- 1. Home / Level Map Screen -->
+        <div id="screen-home" class="screen absolute inset-0 overflow-y-auto overflow-x-hidden p-6">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-blue-600 drop-shadow-sm">Adventure Map</h1>
+                <p class="text-gray-500">Read to reach the castle!</p>
             </div>
-            <p class="text-xs text-gray-400 mt-2 font-medium">(Tap the button above if mic stops)</p>
-            <p id="feedback-text" class="mt-4 text-gray-400 h-6 text-lg font-medium"></p>
             
-            <button onclick="skipSentence()" class="mt-6 text-gray-400 hover:text-gray-600 underline text-sm">
-                Skip this sentence
-            </button>
+            <div class="path-container" id="level-path">
+                <div class="path-line"></div>
+                <!-- Levels injected via JS -->
+            </div>
+            
+            <div class="h-32 w-full"></div> <!-- Spacer -->
+        </div>
+
+        <!-- 2. Reading Game Screen -->
+        <div id="screen-read" class="screen absolute inset-0 hidden flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm z-40">
+            <div class="w-full max-w-4xl px-4 flex flex-col items-center h-full justify-center">
+                
+                <!-- Progress Header -->
+                <div class="w-full flex justify-between items-end mb-4 max-w-2xl">
+                    <button onclick="quitLevel()" class="text-gray-400 hover:text-red-500 font-bold text-sm"><i class="fa-solid fa-arrow-left"></i> Quit</button>
+                    <div class="flex flex-col items-center">
+                        <span class="text-lg font-bold text-blue-500" id="level-title">The Zoo</span>
+                        <div class="w-48 h-3 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                            <div id="read-progress" class="h-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <span class="text-blue-500 font-bold"><span id="sentence-idx">1</span>/50</span>
+                </div>
+
+                <!-- Sentence Card -->
+                <div id="card-container" class="bg-white rounded-3xl shadow-xl border-4 border-blue-100 p-8 w-full min-h-[300px] flex items-center justify-center relative mb-8 transition-transform duration-300">
+                    <div id="sentence-display" class="text-4xl md:text-6xl font-bold text-center leading-relaxed text-gray-800">
+                        <!-- Words go here -->
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex flex-col items-center gap-4">
+                    <div id="mic-status" onclick="toggleMic()" class="cursor-pointer bg-red-100 text-red-600 px-8 py-4 rounded-full flex items-center gap-3 font-bold text-xl hover:scale-105 transition shadow-lg border-2 border-red-200">
+                        <div class="w-5 h-5 bg-red-500 rounded-full mic-pulse"></div>
+                        <span id="mic-text">Listening...</span>
+                    </div>
+                    <p class="text-gray-400 text-sm">(Tap button to restart mic)</p>
+                    <p id="feedback-text" class="h-8 text-xl font-bold text-blue-500 transition-opacity"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Arcade / Shop Screen -->
+        <div id="screen-shop" class="screen absolute inset-0 hidden bg-purple-50 flex flex-col items-center p-6 overflow-y-auto">
+            <div class="w-full max-w-4xl">
+                <button onclick="showScreen('home')" class="mb-6 text-purple-500 hover:text-purple-700 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Map</button>
+                
+                <div class="text-center mb-10">
+                    <h1 class="text-5xl font-bold text-purple-600 mb-2">Arcade Shop</h1>
+                    <p class="text-xl text-gray-600">Spend 20 Stars to play for 5 minutes!</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Game Card 1 -->
+                    <div onclick="buyGame('dino')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-purple-200 cursor-pointer hover:-translate-y-2 transition group">
+                        <div class="h-40 bg-green-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🦖</div>
+                        <h3 class="text-2xl font-bold text-gray-800">Dino Jump</h3>
+                        <p class="text-gray-500 mb-4">Jump over cactus!</p>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-star"></i> 20 Play
+                        </button>
+                    </div>
+
+                    <!-- Game Card 2 -->
+                    <div onclick="buyGame('pong')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-blue-200 cursor-pointer hover:-translate-y-2 transition group">
+                        <div class="h-40 bg-blue-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🏓</div>
+                        <h3 class="text-2xl font-bold text-gray-800">Paddle Pong</h3>
+                        <p class="text-gray-500 mb-4">Beat the computer!</p>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-star"></i> 20 Play
+                        </button>
+                    </div>
+
+                    <!-- Game Card 3 -->
+                    <div onclick="buyGame('car')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-red-200 cursor-pointer hover:-translate-y-2 transition group">
+                        <div class="h-40 bg-red-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🏎️</div>
+                        <h3 class="text-2xl font-bold text-gray-800">Tiny Racers</h3>
+                        <p class="text-gray-500 mb-4">Dodge the traffic!</p>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-star"></i> 20 Play
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Active Game Screen -->
+        <div id="screen-play" class="screen absolute inset-0 hidden bg-gray-900 flex flex-col items-center justify-center z-50">
+            <div class="absolute top-4 right-4 bg-gray-800 text-white px-6 py-2 rounded-full font-mono text-xl border border-gray-600 shadow-lg flex items-center gap-2">
+                <i class="fa-regular fa-clock text-yellow-400"></i> <span id="game-timer">05:00</span>
+            </div>
+            <button onclick="exitArcade()" class="absolute top-4 left-4 text-white hover:text-red-400"><i class="fa-solid fa-door-open"></i> Exit</button>
+            
+            <div id="game-container" class="relative">
+                <canvas id="game-canvas" width="800" height="450" class="max-w-full"></canvas>
+                <div id="game-overlay" class="absolute inset-0 flex items-center justify-center bg-black/50 hidden">
+                    <button onclick="startGameLoop()" class="bg-green-500 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-lg hover:scale-110 transition">Start Game</button>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-gray-400 text-sm">Use Keyboard Arrows / Mouse / Touch to play</div>
+        </div>
+
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-pop">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-700">Choose a Theme</h2>
+                <button onclick="toggleSettings()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Theme Buttons -->
+                <button onclick="setTheme('sky')" class="p-4 rounded-xl bg-blue-100 hover:ring-4 ring-blue-300 transition text-blue-800 font-bold">Sky Blue</button>
+                <button onclick="setTheme('mint')" class="p-4 rounded-xl bg-green-100 hover:ring-4 ring-green-300 transition text-green-800 font-bold">Mint Fresh</button>
+                <button onclick="setTheme('pink')" class="p-4 rounded-xl bg-pink-100 hover:ring-4 ring-pink-300 transition text-pink-800 font-bold">Candy Pink</button>
+                <button onclick="setTheme('lemon')" class="p-4 rounded-xl bg-yellow-100 hover:ring-4 ring-yellow-300 transition text-yellow-800 font-bold">Lemonade</button>
+                <button onclick="setTheme('lavender')" class="p-4 rounded-xl bg-purple-100 hover:ring-4 ring-purple-300 transition text-purple-800 font-bold">Lavender</button>
+                <button onclick="setTheme('peach')" class="p-4 rounded-xl bg-orange-100 hover:ring-4 ring-orange-300 transition text-orange-800 font-bold">Peach</button>
+                <button onclick="setTheme('cream')" class="p-4 rounded-xl bg-stone-100 hover:ring-4 ring-stone-300 transition text-stone-800 font-bold">Cream</button>
+                <button onclick="setTheme('dark')" class="p-4 rounded-xl bg-gray-700 hover:ring-4 ring-gray-500 transition text-white font-bold">Night Mode</button>
+            </div>
         </div>
     </div>
 
-    <!-- Completion Screen -->
-    <div id="end-screen" class="hidden text-center p-6 bg-white rounded-3xl shadow-xl max-w-md w-full mx-4 border-4 border-green-200">
-        <h1 class="text-5xl font-bold text-green-600 mb-6">Great Job! 🎉</h1>
-        <p class="text-gray-600 mb-8 text-xl">You read all 75 sentences! You are a superstar reader.</p>
-        <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105">
-            Read Again
-        </button>
+    <!-- Celebration Overlay -->
+    <div id="celebration-overlay" class="fixed inset-0 pointer-events-none z-[70] hidden flex items-center justify-center">
+        <h1 class="text-6xl md:text-8xl font-bold text-yellow-400 drop-shadow-lg animate-bounce">LEVEL COMPLETE!</h1>
     </div>
 
     <script>
-        // --- Data: 75 Simple Sentences ---
-        const sentences = [
-            "I see a cat.", "The dog runs.", "The sun is hot.", "I like pizza.", "The sky is blue.",
-            "I have a ball.", "She is my mom.", "He is my dad.", "The cat sleeps.", "I can jump.",
-            "The bird can fly.", "I see a big bus.", "The grass is green.", "I love to play.", "Look at the moon.",
-            "I have two hands.", "The fish can swim.", "The car is red.", "I eat an apple.", "It is raining.",
-            "I see a cow.", "The pig is pink.", "I like ice cream.", "We go to school.", "The book is fun.",
-            "I see a star.", "The baby cries.", "I wash my hands.", "The tree is tall.", "I have a toy.",
-            "The flower is red.", "I see a little ant.", "The duck says quack.", "I put on my shoes.", "We play tag.",
-            "The horse runs fast.", "I drink milk.", "The owl has big eyes.", "I see a spider.", "The box is empty.",
-            "My bag is heavy.", "I like the snow.", "The fire is hot.", "I brush my teeth.", "The bee can buzz.",
-            "I see a green frog.", "The bear is big.", "I can ride my bike.", "The soup is hot.", "I sit on a chair.",
-            "The door is open.", "I see a white cloud.", "The kite flies high.", "I hug my teddy.", "The train goes choo.",
-            "I draw a picture.", "The mouse is small.", "I help my friends.", "The water is cold.", "I see a yellow sun.",
-            "The leaves fall down.", "I make a sand castle.", "The lion roars.", "I clean my room.", "The snake is long.",
-            "I clap my hands.", "The turtle is slow.", "I smile at you.", "The wind blows.", "I like to dance.",
-            "The stars shine bright.", "I read a book.", "The boat floats.", "I am happy today.", "Good night sleep tight."
+        /**
+         * ------------------------------------------------------------------
+         * DATA & CONFIGURATION
+         * ------------------------------------------------------------------
+         */
+        
+        // --- Sentence Generator ---
+        // Generates consistent but simple sentences based on vocabulary banks
+        const THEMES = [
+            { id: 'zoo', name: 'The Zoo', icon: '🦁', color: 'border-orange-400' },
+            { id: 'ocean', name: 'Deep Ocean', icon: '🐬', color: 'border-blue-400' },
+            { id: 'space', name: 'Outer Space', icon: '🚀', color: 'border-indigo-400' },
+            { id: 'house', name: 'My House', icon: '🏠', color: 'border-green-400' },
+            { id: 'park', name: 'The Park', icon: '🌳', color: 'border-emerald-400' },
+            { id: 'farm', name: 'The Farm', icon: '🐮', color: 'border-yellow-600' },
+            { id: 'school', name: 'School Day', icon: '🎒', color: 'border-red-400' },
+            { id: 'food', name: 'Yummy Food', icon: '🍕', color: 'border-orange-300' },
+            { id: 'colors', name: 'Colors', icon: '🎨', color: 'border-pink-400' },
+            { id: 'trans', name: 'Go Go Go', icon: '🚗', color: 'border-gray-400' },
+            { id: 'weather', name: 'Weather', icon: '⛅', color: 'border-sky-300' },
+            { id: 'family', name: 'My Family', icon: '👨‍👩‍👧', color: 'border-purple-400' },
+            { id: 'feelings', name: 'Feelings', icon: '😊', color: 'border-yellow-300' },
+            { id: 'fairy', name: 'Fairy Tales', icon: '🏰', color: 'border-fuchsia-400' },
+            { id: 'city', name: 'Big City', icon: '🏙️', color: 'border-blue-600' }
         ];
 
-        // --- State Variables ---
-        let currentIndex = 0;
-        let currentWordIndex = 0; // Which word in the sentence are we waiting for?
-        let recognition;
-        let isListening = false;
-        let streak = 0;
-        let permissionDenied = false;
+        const VOCAB = {
+            zoo: { nouns: ['lion','tiger','bear','monkey','zebra','elephant','giraffe','snake'], verbs: ['runs','roars','sleeps','eats','climbs','jumps'], adjs: ['big','fast','scary','loud','funny'] },
+            ocean: { nouns: ['fish','shark','whale','dolphin','crab','starfish','octopus'], verbs: ['swims','splashes','dives','hides','eats'], adjs: ['blue','wet','deep','fast','small'] },
+            space: { nouns: ['star','moon','sun','rocket','planet','alien'], verbs: ['shines','flies','glows','spins','zooms'], adjs: ['bright','far','hot','cold','dark'] },
+            house: { nouns: ['bed','chair','door','window','table','lamp','rug'], verbs: ['opens','shuts','stands','sits','looks'], adjs: ['soft','hard','open','closed','clean'] },
+            park: { nouns: ['slide','swing','grass','tree','bird','kite','ball'], verbs: ['flies','grows','plays','runs','sings'], adjs: ['green','high','fun','tall','red'] },
+            farm: { nouns: ['cow','pig','chicken','horse','duck','sheep'], verbs: ['moos','oinks','quacks','runs','eats'], adjs: ['pink','white','muddy','loud','soft'] },
+            school: { nouns: ['book','pencil','desk','teacher','friend','bag'], verbs: ['reads','writes','listens','learns','plays'], adjs: ['smart','fun','heavy','new','good'] },
+            food: { nouns: ['apple','pizza','cake','bread','milk','soup','candy'], verbs: ['tastes','looks','smells','cooks','eats'], adjs: ['yummy','sweet','hot','cold','fresh'] },
+            colors: { nouns: ['red','blue','green','yellow','purple','orange'], verbs: ['is','looks','seems'], adjs: ['bright','pretty','dark','light'] },
+            trans: { nouns: ['car','bus','train','plane','boat','bike'], verbs: ['goes','stops','honks','flies','floats'], adjs: ['fast','slow','big','red','loud'] },
+            weather: { nouns: ['sun','rain','snow','wind','cloud','storm'], verbs: ['falls','blows','shines','comes','stops'], adjs: ['wet','cold','hot','windy','white'] },
+            family: { nouns: ['mom','dad','baby','sister','brother','grandma'], verbs: ['hugs','loves','smiles','laughs','helps'], adjs: ['happy','kind','funny','little','nice'] },
+            feelings: { nouns: ['smile','frown','tear','laugh'], verbs: ['is','feels','looks'], adjs: ['happy','sad','mad','silly','scared'] },
+            fairy: { nouns: ['king','queen','dragon','magic','wand','frog'], verbs: ['flies','spells','wishes','hops','rules'], adjs: ['magic','green','gold','old','brave'] },
+            city: { nouns: ['building','street','light','taxi','bus','store'], verbs: ['shines','stops','goes','waits','opens'], adjs: ['tall','busy','loud','bright','big'] }
+        };
 
-        // --- DOM Elements ---
-        const startScreen = document.getElementById('start-screen');
-        const gameScreen = document.getElementById('game-screen');
-        const endScreen = document.getElementById('end-screen');
-        const sentenceDisplay = document.getElementById('sentence-display');
-        const progressBar = document.getElementById('progress-bar');
-        const currentCount = document.getElementById('current-count');
-        const cardContainer = document.getElementById('card-container');
-        const feedbackText = document.getElementById('feedback-text');
-        const micStatus = document.getElementById('mic-status');
+        // Generate 50 unique sentences for a theme
+        function generateSentences(themeId) {
+            const v = VOCAB[themeId] || VOCAB['zoo'];
+            const list = [];
+            const set = new Set();
+            
+            // Templates: 
+            // 1. The [adj] [noun] [verb]. 
+            // 2. I see a [adj] [noun].
+            // 3. The [noun] is [adj].
+            // 4. [noun] [verb] [adj] (rare)
 
-        // --- Initialization ---
-        function startGame() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                alert("Sorry, your browser doesn't support speech recognition. Please try Google Chrome, Edge, or Safari.");
-                return;
+            let safety = 0;
+            while(list.length < 50 && safety < 1000) {
+                safety++;
+                const n = v.nouns[Math.floor(Math.random() * v.nouns.length)];
+                const vb = v.verbs[Math.floor(Math.random() * v.verbs.length)];
+                const a = v.adjs[Math.floor(Math.random() * v.adjs.length)];
+                
+                let s = "";
+                const type = Math.floor(Math.random() * 3);
+                
+                if (type === 0) s = `The ${a} ${n} ${vb}.`;
+                else if (type === 1) s = `I see a ${a} ${n}.`;
+                else if (type === 2) s = `The ${n} is ${a}.`;
+                
+                // Capitalize first letter
+                s = s.charAt(0).toUpperCase() + s.slice(1);
+
+                if (!set.has(s)) {
+                    set.add(s);
+                    list.push(s);
+                }
             }
+            return list;
+        }
 
-            // Request Mic Permission via API instantiation
-            setupSpeechRecognition();
+        // --- Game State ---
+        let state = {
+            stars: parseInt(localStorage.getItem('rb_stars')) || 0,
+            unlockedLevel: parseInt(localStorage.getItem('rb_level')) || 0,
+            theme: localStorage.getItem('rb_theme') || 'sky'
+        };
+
+        let currentSession = {
+            sentences: [],
+            index: 0,
+            levelId: 0,
+            wordIndex: 0,
+            recognition: null,
+            listening: false,
+            permissionDenied: false
+        };
+
+        let activeGame = null;
+        let gameTimer = null;
+        let timeLeft = 300; // 5 mins in seconds
+
+        /**
+         * ------------------------------------------------------------------
+         * CORE APP LOGIC
+         * ------------------------------------------------------------------
+         */
+
+        function init() {
+            setTheme(state.theme);
+            updateStars();
+            renderMap();
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`screen-${id}`).classList.remove('hidden');
             
-            startScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            gameScreen.classList.add('flex');
+            // Clean up
+            if (id !== 'play') stopArcadeGame();
+            if (id !== 'read') stopReadingSession();
+        }
+
+        function updateStars() {
+            document.getElementById('star-display').innerText = state.stars;
+            localStorage.setItem('rb_stars', state.stars);
+            localStorage.setItem('rb_level', state.unlockedLevel);
+        }
+
+        /* --- Theme Engine --- */
+        const THEME_COLORS = {
+            sky: '#f0f9ff', mint: '#ecfdf5', pink: '#fdf2f8', lemon: '#fefce8',
+            lavender: '#f3e8ff', peach: '#fff7ed', cream: '#fafaf9', dark: '#1f2937'
+        };
+        const THEME_TEXT = { dark: '#f3f4f6' };
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function setTheme(key) {
+            state.theme = key;
+            localStorage.setItem('rb_theme', key);
+            document.documentElement.style.setProperty('--bg-color', THEME_COLORS[key]);
+            document.documentElement.style.setProperty('--text-color', THEME_TEXT[key] || '#1f2937');
+            if(key === 'dark') document.body.classList.add('dark');
+            else document.body.classList.remove('dark');
+            toggleSettings(); // Close modal if open
+            // Ensure modal is hidden if called from init
+            if (!document.getElementById('settings-modal').classList.contains('hidden') && arguments.callee.caller.name === 'init') {
+               document.getElementById('settings-modal').classList.add('hidden');
+            }
+        }
+
+        /* --- Map Rendering --- */
+        function renderMap() {
+            const container = document.getElementById('level-path');
+            // Remove old nodes but keep line
+            const nodes = container.querySelectorAll('.level-node');
+            nodes.forEach(n => n.remove());
+
+            THEMES.forEach((theme, idx) => {
+                const node = document.createElement('div');
+                const isLocked = idx > state.unlockedLevel;
+                const isCompleted = idx < state.unlockedLevel;
+                
+                node.className = `level-node mx-auto bg-white ${theme.color} ${isLocked ? 'locked' : ''} ${isCompleted ? 'completed' : ''}`;
+                
+                // Visual Staggering
+                const offset = (idx % 2 === 0) ? '-80px' : '80px';
+                node.style.transform = `translateX(${offset})`;
+                
+                node.innerHTML = theme.icon;
+                
+                if(!isLocked) {
+                    node.onclick = () => startLevel(idx);
+                }
+
+                // Tooltip
+                const label = document.createElement('div');
+                label.className = "absolute -bottom-8 w-40 text-center text-sm font-bold text-gray-600 pointer-events-none";
+                label.innerText = (isLocked) ? "Locked" : theme.name;
+                node.appendChild(label);
+
+                container.appendChild(node);
+            });
+        }
+
+        /**
+         * ------------------------------------------------------------------
+         * READING GAME LOGIC
+         * ------------------------------------------------------------------
+         */
+
+        function startLevel(idx) {
+            currentSession.levelId = idx;
+            currentSession.index = 0;
+            currentSession.sentences = generateSentences(THEMES[idx].id);
             
+            document.getElementById('level-title').innerText = THEMES[idx].name;
+            showScreen('read');
             loadSentence();
+            
+            // Setup Mic
+            if (!currentSession.recognition) setupSpeech();
+            else startMic();
         }
-
-        function setupSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = true; // Keep listening
-            recognition.interimResults = true; // Get results as they speak
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                isListening = true;
-                micStatus.classList.remove('bg-gray-200', 'text-gray-500', 'bg-yellow-100', 'text-yellow-800');
-                micStatus.classList.add('bg-red-100', 'text-red-600');
-                micStatus.innerHTML = '<div class="w-4 h-4 bg-red-500 rounded-full mic-pulse"></div> Listening...';
-            };
-
-            recognition.onerror = (event) => {
-                console.log("Speech recognition error", event.error);
-                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                    permissionDenied = true;
-                    micStatus.innerHTML = '⚠️ Mic Access Denied';
-                    micStatus.classList.remove('bg-red-100', 'text-red-600');
-                    micStatus.classList.add('bg-yellow-100', 'text-yellow-800');
-                    alert("It looks like microphone access was denied. Please allow microphone access in your browser settings to play.");
-                }
-            };
-
-            recognition.onend = () => {
-                isListening = false;
-                
-                // FIXED: Removed auto-restart to prevent permission loops.
-                // Instead, show a manual resume button.
-                
-                if (!permissionDenied) {
-                    micStatus.classList.remove('bg-red-100', 'text-red-600');
-                    micStatus.classList.add('bg-gray-200', 'text-gray-500');
-                    micStatus.innerHTML = '🛑 Mic Off (Tap to Resume)';
-                }
-            };
-
-            recognition.onresult = (event) => {
-                const resultIndex = event.resultIndex;
-                const transcript = event.results[resultIndex][0].transcript.trim().toLowerCase();
-                const isFinal = event.results[resultIndex].isFinal;
-
-                handleSpeechInput(transcript, isFinal);
-            };
-
-            try {
-                recognition.start();
-            } catch(e) {
-                console.log("Mic start error", e);
-            }
-        }
-
-        // --- Manual Toggle Function ---
-        function toggleMic() {
-            if (permissionDenied) return;
-
-            if (isListening) {
-                recognition.stop();
-            } else {
-                try {
-                    micStatus.innerHTML = 'Starting...';
-                    recognition.start();
-                } catch (e) {
-                    console.error("Manual start error", e);
-                }
-            }
-        }
-
-        // --- Core Logic ---
 
         function loadSentence() {
-            // Reset State
-            currentWordIndex = 0;
-            const text = sentences[currentIndex];
+            currentSession.wordIndex = 0;
+            const text = currentSession.sentences[currentSession.index];
             const words = text.split(' ');
+            const display = document.getElementById('sentence-display');
             
-            // Build HTML for words
-            sentenceDisplay.innerHTML = '';
-            words.forEach((word, index) => {
+            display.innerHTML = '';
+            words.forEach(word => {
                 const span = document.createElement('span');
                 span.textContent = word;
-                span.className = 'word-span word-pending text-5xl md:text-7xl';
-                span.dataset.clean = cleanWord(word); // Store clean version for matching
-                sentenceDisplay.appendChild(span);
+                span.className = 'word-span word-pending';
+                span.dataset.clean = word.toLowerCase().replace(/[.,!?;:]/g, '');
+                display.appendChild(span);
             });
 
-            // Update UI
-            currentCount.innerText = currentIndex + 1;
-            progressBar.style.width = `${((currentIndex) / sentences.length) * 100}%`;
-            feedbackText.innerText = "";
+            // UI
+            document.getElementById('sentence-idx').innerText = currentSession.index + 1;
+            document.getElementById('read-progress').style.width = `${(currentSession.index / 50) * 100}%`;
+            document.getElementById('feedback-text').innerText = "";
             
-            // Animation Entry
-            sentenceDisplay.classList.remove('animate-exit');
-            sentenceDisplay.classList.add('animate-enter');
+            // Animation
+            const card = document.getElementById('card-container');
+            card.classList.remove('animate-pop');
+            void card.offsetWidth; // Trigger reflow
+            card.classList.add('animate-pop');
         }
 
-        function cleanWord(word) {
-            return word.toLowerCase().replace(/[.,!?;:]/g, '');
-        }
-
-        function handleSpeechInput(transcript, isFinal) {
-            const wordSpans = document.querySelectorAll('.word-span');
-            
-            // Safety check
-            if (currentWordIndex >= wordSpans.length) return;
-
-            const targetWord = wordSpans[currentWordIndex].dataset.clean;
-            const spokenWords = transcript.split(' ');
-            
-            // We check the last spoken word against the target, or if the transcript contains the target
-            // This allows for "I... see... a... cat" pattern
-            
-            let matched = false;
-
-            // Check if the target word is anywhere in the recent transcript segment
-            // (Simple matching logic for kids)
-            if (transcript.includes(targetWord)) {
-                matched = true;
+        function setupSpeech() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert("Speech API not supported.");
+                return;
             }
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            currentSession.recognition = new SR();
+            currentSession.recognition.continuous = true;
+            currentSession.recognition.interimResults = true;
+            currentSession.recognition.lang = 'en-US';
 
-            if (matched) {
-                // Success!
-                markWordCorrect(wordSpans[currentWordIndex]);
-                currentWordIndex++;
-                feedbackText.innerText = "Good job!";
-                
-                // Clear feedback text after a delay
-                setTimeout(() => feedbackText.innerText = "", 1000);
+            currentSession.recognition.onstart = () => {
+                currentSession.listening = true;
+                updateMicUI('listening');
+            };
 
-                // Check for Sentence Completion
-                if (currentWordIndex >= wordSpans.length) {
-                    completeSentence();
+            currentSession.recognition.onerror = (e) => {
+                if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                    currentSession.permissionDenied = true;
+                    updateMicUI('denied');
+                } else if (e.error === 'network') {
+                    updateMicUI('network');
                 }
-            } else if (isFinal) {
-                // If it was a "final" result and didn't match, give negative feedback
-                // Only if the transcript is reasonably long to avoid noise triggers
-                if(transcript.length > 1) {
-                    markWordWrong(wordSpans[currentWordIndex]);
-                    feedbackText.innerText = "Try again!";
-                }
-            }
+            };
+
+            currentSession.recognition.onend = () => {
+                currentSession.listening = false;
+                if (!currentSession.permissionDenied) updateMicUI('stopped');
+            };
+
+            currentSession.recognition.onresult = processSpeech;
+            startMic();
         }
 
-        function markWordCorrect(element) {
-            element.classList.remove('word-pending', 'word-wrong');
-            element.classList.add('word-correct');
-            // Play a soft pop sound or just rely on visuals (keeping it simple with visuals per request)
+        function startMic() {
+            if(currentSession.permissionDenied) return;
+            try { currentSession.recognition.start(); } catch(e){}
         }
 
-        function markWordWrong(element) {
-            element.classList.add('word-wrong');
-            setTimeout(() => {
-                element.classList.remove('word-wrong');
-            }, 500);
+        function stopReadingSession() {
+            if(currentSession.recognition) currentSession.recognition.stop();
         }
 
-        function completeSentence() {
-            streak++;
-            document.getElementById('streak-counter').innerText = `⭐ ${streak}`;
-            
-            // Flash Green
-            cardContainer.classList.add('flash-success');
-            
-            // Play Sound (Optional, using browser synthesis for 'Great!')
-            const utterance = new SpeechSynthesisUtterance("Great!");
-            utterance.rate = 1.2;
-            window.speechSynthesis.speak(utterance);
-
-            setTimeout(() => {
-                // Zoom Out
-                sentenceDisplay.classList.remove('animate-enter');
-                sentenceDisplay.classList.add('animate-exit');
-                
-                setTimeout(() => {
-                    cardContainer.classList.remove('flash-success');
-                    nextSentence();
-                }, 500); // Wait for zoom out
-            }, 1000); // Wait for flash
+        function toggleMic() {
+            if (currentSession.listening) currentSession.recognition.stop();
+            else startMic();
         }
 
-        function nextSentence() {
-            currentIndex++;
-            if (currentIndex < sentences.length) {
-                loadSentence();
+        function updateMicUI(status) {
+            const btn = document.getElementById('mic-status');
+            const txt = document.getElementById('mic-text');
+            const led = btn.querySelector('div');
+
+            btn.className = "cursor-pointer px-8 py-4 rounded-full flex items-center gap-3 font-bold text-xl hover:scale-105 transition shadow-lg border-2 border-transparent transition-colors duration-300";
+            led.className = "w-5 h-5 rounded-full";
+
+            if (status === 'listening') {
+                btn.classList.add('bg-red-100', 'text-red-600', 'border-red-200');
+                led.classList.add('bg-red-500', 'mic-pulse');
+                txt.innerText = "Listening...";
+            } else if (status === 'denied') {
+                btn.classList.add('bg-yellow-100', 'text-yellow-700');
+                led.classList.add('bg-yellow-500');
+                txt.innerText = "Access Denied";
+            } else if (status === 'network') {
+                btn.classList.add('bg-orange-100', 'text-orange-700');
+                led.classList.add('bg-orange-500');
+                txt.innerText = "No Internet";
             } else {
-                showEndScreen();
+                btn.classList.add('bg-gray-200', 'text-gray-500');
+                led.classList.add('bg-gray-400');
+                txt.innerText = "Mic Paused";
             }
         }
 
-        function skipSentence() {
-            // Helper for parents/teachers or stuck recognition
-            nextSentence();
+        function processSpeech(event) {
+            const resultIndex = event.resultIndex;
+            const transcript = event.results[resultIndex][0].transcript.trim().toLowerCase();
+            const isFinal = event.results[resultIndex].isFinal;
+            
+            const spans = document.querySelectorAll('.word-span');
+            if (currentSession.wordIndex >= spans.length) return;
+
+            const target = spans[currentSession.wordIndex].dataset.clean;
+
+            // Simple "contains" logic for kids
+            if (transcript.includes(target)) {
+                // Correct
+                const el = spans[currentSession.wordIndex];
+                el.classList.remove('word-pending', 'word-wrong');
+                el.classList.add('word-correct');
+                currentSession.wordIndex++;
+
+                // Sentence Complete?
+                if (currentSession.wordIndex >= spans.length) {
+                    sentenceSuccess();
+                }
+            } else if (isFinal && transcript.length > 1) {
+                // Wrong
+                const el = spans[currentSession.wordIndex];
+                el.classList.add('word-wrong');
+                setTimeout(() => el.classList.remove('word-wrong'), 500);
+            }
         }
 
-        function showEndScreen() {
-            gameScreen.classList.add('hidden');
-            gameScreen.classList.remove('flex');
-            endScreen.classList.remove('hidden');
-            // Stop mic
-            if(recognition) recognition.stop();
+        function sentenceSuccess() {
+            // Give Star
+            state.stars++;
+            updateStars();
+            
+            const fb = document.getElementById('feedback-text');
+            fb.innerText = "Great Job! +1 Star ⭐";
+            
+            setTimeout(() => {
+                currentSession.index++;
+                if (currentSession.index < 50) {
+                    loadSentence();
+                } else {
+                    levelComplete();
+                }
+            }, 1000);
         }
+
+        function levelComplete() {
+            stopReadingSession();
+            // Unlock next level
+            if (currentSession.levelId === state.unlockedLevel && state.unlockedLevel < 14) {
+                state.unlockedLevel++;
+                updateStars(); // saves level
+            }
+            
+            // Show Overlay
+            const overlay = document.getElementById('celebration-overlay');
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                renderMap();
+                showScreen('home');
+            }, 3000);
+        }
+
+        function quitLevel() {
+            stopReadingSession();
+            showScreen('home');
+        }
+
+        /**
+         * ------------------------------------------------------------------
+         * ARCADE SHOP & GAMES
+         * ------------------------------------------------------------------
+         */
+
+        function openShop() {
+            showScreen('shop');
+        }
+
+        function buyGame(gameType) {
+            if (state.stars >= 20) {
+                state.stars -= 20;
+                updateStars();
+                launchGame(gameType);
+            } else {
+                alert("You need 20 stars to play! Keep reading!");
+            }
+        }
+
+        function launchGame(type) {
+            showScreen('play');
+            activeGame = type;
+            timeLeft = 300; // 5 mins
+            
+            // Start Timer
+            updateTimerDisplay();
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if (timeLeft <= 0) {
+                    exitArcade();
+                    alert("Time's up! Back to reading!");
+                }
+            }, 1000);
+
+            // Init Canvas
+            initMiniGame(type);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('game-timer').innerText = `${m}:${s}`;
+        }
+
+        function exitArcade() {
+            clearInterval(gameTimer);
+            stopArcadeGame();
+            showScreen('shop');
+        }
+
+        // --- Mini Game Engines ---
+        let canvas, ctx, loopId;
+        let gameObj = {};
+
+        function initMiniGame(type) {
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Reset Overlay
+            document.getElementById('game-overlay').classList.remove('hidden');
+            
+            if (type === 'dino') setupDino();
+            else if (type === 'pong') setupPong();
+            else if (type === 'car') setupCar();
+        }
+
+        function startGameLoop() {
+            document.getElementById('game-overlay').classList.add('hidden');
+            loop();
+        }
+
+        function stopArcadeGame() {
+            cancelAnimationFrame(loopId);
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (activeGame === 'dino') updateDino();
+            else if (activeGame === 'pong') updatePong();
+            else if (activeGame === 'car') updateCar();
+            
+            loopId = requestAnimationFrame(loop);
+        }
+
+        // --- 1. Dino Jump ---
+        function setupDino() {
+            gameObj = {
+                player: { x: 50, y: 350, w: 40, h: 40, vy: 0, grounded: true },
+                obstacles: [],
+                speed: 5,
+                score: 0,
+                frame: 0
+            };
+            // Input
+            window.onkeydown = (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') jumpDino(); };
+            canvas.ontouchstart = () => jumpDino();
+        }
+
+        function jumpDino() {
+            if (gameObj.player.grounded) {
+                gameObj.player.vy = -15;
+                gameObj.player.grounded = false;
+            }
+        }
+
+        function updateDino() {
+            const p = gameObj.player;
+            gameObj.frame++;
+
+            // Physics
+            p.vy += 0.8; // Gravity
+            p.y += p.vy;
+            if (p.y > 350) { p.y = 350; p.vy = 0; p.grounded = true; }
+
+            // Spawning
+            if (gameObj.frame % 100 === 0) {
+                gameObj.obstacles.push({ x: 800, w: 30, h: 50 });
+            }
+
+            // Draw Ground
+            ctx.fillStyle = '#888';
+            ctx.fillRect(0, 390, 800, 2);
+
+            // Draw Player
+            ctx.fillStyle = '#16a34a';
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+
+            // Draw Obstacles
+            ctx.fillStyle = '#dc2626';
+            gameObj.obstacles.forEach((obs, i) => {
+                obs.x -= gameObj.speed;
+                ctx.fillRect(obs.x, 390 - obs.h, obs.w, obs.h);
+
+                // Collision
+                if (p.x < obs.x + obs.w && p.x + p.w > obs.x && p.y < 390 && p.y + p.h > 390 - obs.h) {
+                    resetDino();
+                }
+
+                // Cleanup
+                if (obs.x < -50) gameObj.obstacles.splice(i, 1);
+            });
+        }
+        function resetDino() { setupDino(); }
+
+
+        // --- 2. Paddle Pong ---
+        function setupPong() {
+            gameObj = {
+                ball: { x: 400, y: 225, vx: 4, vy: 4, size: 10 },
+                p1: { y: 200, h: 80 },
+                p2: { y: 200, h: 80 }, // AI
+            };
+            canvas.onmousemove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameObj.p1.y = e.clientY - rect.top - 40;
+            };
+            // Touch for mobile
+            canvas.ontouchmove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameObj.p1.y = e.touches[0].clientY - rect.top - 40;
+            };
+        }
+
+        function updatePong() {
+            const b = gameObj.ball;
+            
+            // Move Ball
+            b.x += b.vx;
+            b.y += b.vy;
+
+            // Bounce Top/Bot
+            if (b.y < 0 || b.y > 450) b.vy *= -1;
+
+            // AI Logic
+            const target = b.y - 40;
+            gameObj.p2.y += (target - gameObj.p2.y) * 0.1;
+
+            // Paddles
+            // P1 (Left)
+            if (b.x < 30 && b.y > gameObj.p1.y && b.y < gameObj.p1.y + 80) b.vx *= -1.1;
+            // P2 (Right)
+            if (b.x > 770 && b.y > gameObj.p2.y && b.y < gameObj.p2.y + 80) b.vx *= -1.1;
+
+            // Reset
+            if (b.x < 0 || b.x > 800) {
+                b.x = 400; b.y = 225; b.vx = (Math.random() > 0.5 ? 4 : -4); b.vy = 4;
+            }
+
+            // Draw
+            ctx.fillStyle = '#000';
+            ctx.fillRect(399, 0, 2, 450); // Net
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(10, gameObj.p1.y, 20, 80);
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(770, gameObj.p2.y, 20, 80);
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.size, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+
+        // --- 3. Tiny Racers ---
+        function setupCar() {
+            gameObj = {
+                car: { x: 400, w: 40, h: 60 },
+                traffic: [],
+                speed: 5,
+                frame: 0
+            };
+            canvas.onmousemove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameObj.car.x = e.clientX - rect.left - 20;
+            };
+             canvas.ontouchmove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameObj.car.x = e.touches[0].clientX - rect.left - 20;
+            };
+        }
+
+        function updateCar() {
+            gameObj.frame++;
+            if (gameObj.frame % 60 === 0) {
+                gameObj.traffic.push({ x: Math.random() * 700 + 50, y: -100, w: 40, h: 60, speed: Math.random() * 3 + 3 });
+            }
+
+            // Draw Road
+            ctx.fillStyle = '#333';
+            ctx.fillRect(100, 0, 600, 450);
+            ctx.strokeStyle = '#fff';
+            ctx.setLineDash([20, 20]);
+            ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 450); ctx.stroke();
+
+            // Draw Player
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(gameObj.car.x, 380, 40, 60);
+
+            // Draw Traffic
+            ctx.fillStyle = '#ef4444';
+            gameObj.traffic.forEach((t, i) => {
+                t.y += t.speed;
+                ctx.fillRect(t.x, t.y, t.w, t.h);
+
+                // Collision
+                if (gameObj.car.x < t.x + t.w && gameObj.car.x + 40 > t.x && 380 < t.y + t.h && 380 + 60 > t.y) {
+                    setupCar(); // crash
+                }
+                
+                if (t.y > 500) gameObj.traffic.splice(i, 1);
+            });
+        }
+
+        // Init App
+        init();
 
     </script>
 </body>
