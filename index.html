@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reading Adventure World</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for the 3D Head -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -29,10 +31,8 @@
 
         /* --- Text Effects --- */
         .word-span {
-            /* UPDATED: Faster transition for snappier feedback */
             transition: color 0.1s ease, transform 0.1s ease;
             display: inline-block;
-            /* UPDATED: Increased margin for better spacing between words */
             margin-right: 0.4em;
         }
         .word-pending { color: #374151; opacity: 0.8; }
@@ -89,8 +89,6 @@
             z-index: 0;
         }
 
-        /* Zig Zag Layout Logic using nth-child handled in JS rendering or specific classes */
-
         /* --- Animations --- */
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-float { animation: float 3s ease-in-out infinite; }
@@ -103,15 +101,27 @@
 
         /* --- Game Canvas --- */
         canvas { background: #fff; border-radius: 1rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.1); touch-action: none; }
+        
+        /* --- 3D Head Canvas --- */
+        #head-canvas {
+            background: #000;
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden flex flex-col">
 
     <!-- Top Navigation Bar -->
-    <nav class="flex justify-between items-center p-4 bg-white/80 backdrop-blur shadow-sm z-50 h-20 shrink-0">
+    <nav class="flex justify-between items-center p-4 bg-white/80 backdrop-blur shadow-sm z-50 h-20 shrink-0 relative">
         <div class="flex items-center gap-2">
-            <button onclick="showScreen('home')" class="text-2xl text-blue-500 hover:scale-110 transition"><i class="fa-solid fa-house"></i></button>
-            <button onclick="toggleSettings()" class="ml-2 text-2xl text-gray-500 hover:rotate-90 transition duration-500"><i class="fa-solid fa-gear"></i></button>
+            <button onclick="showScreen('home')" class="text-2xl text-blue-500 hover:scale-110 transition p-2"><i class="fa-solid fa-house"></i></button>
+            <button onclick="toggleSettings()" class="ml-2 text-2xl text-gray-500 hover:rotate-90 transition duration-500 p-2"><i class="fa-solid fa-gear"></i></button>
+            
+            <!-- NEW: Chat Button -->
+            <button onclick="startChat()" class="ml-2 text-2xl text-green-500 hover:scale-110 transition p-2 bg-green-50 rounded-full border border-green-200 shadow-sm" title="Talk to Reading Bot">
+                <i class="fa-solid fa-comments"></i>
+            </button>
         </div>
         
         <div id="star-container" class="text-xl font-bold text-yellow-500 bg-yellow-50 px-4 py-2 rounded-full border-2 border-yellow-200 flex items-center gap-2 shadow-sm transition-transform">
@@ -147,7 +157,6 @@
         <!-- 2. Reading Game Screen -->
         <div id="screen-read" class="screen absolute inset-0 hidden flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm z-40">
             <div class="w-full max-w-4xl px-4 flex flex-col items-center h-full justify-center">
-                
                 <!-- Progress Header -->
                 <div class="w-full flex justify-between items-end mb-4 max-w-2xl">
                     <button onclick="quitLevel()" class="text-gray-400 hover:text-red-500 font-bold text-sm"><i class="fa-solid fa-arrow-left"></i> Quit</button>
@@ -183,41 +192,29 @@
         <div id="screen-shop" class="screen absolute inset-0 hidden bg-purple-50 flex flex-col items-center p-6 overflow-y-auto">
             <div class="w-full max-w-4xl">
                 <button onclick="showScreen('home')" class="mb-6 text-purple-500 hover:text-purple-700 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Map</button>
-                
                 <div class="text-center mb-10">
                     <h1 class="text-5xl font-bold text-purple-600 mb-2">Arcade Shop</h1>
                     <p class="text-xl text-gray-600">Spend 20 Stars to play for 5 minutes!</p>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <!-- Game Card 1 -->
+                    <!-- Game Cards (Dino, Pong, Car) -->
                     <div onclick="buyGame('dino')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-purple-200 cursor-pointer hover:-translate-y-2 transition group">
                         <div class="h-40 bg-green-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🦖</div>
                         <h3 class="text-2xl font-bold text-gray-800">Dino Jump</h3>
                         <p class="text-gray-500 mb-4">Jump over cactus!</p>
-                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-star"></i> 20 Play
-                        </button>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2"><i class="fa-solid fa-star"></i> 20 Play</button>
                     </div>
-
-                    <!-- Game Card 2 -->
                     <div onclick="buyGame('pong')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-blue-200 cursor-pointer hover:-translate-y-2 transition group">
                         <div class="h-40 bg-blue-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🏓</div>
                         <h3 class="text-2xl font-bold text-gray-800">Paddle Pong</h3>
                         <p class="text-gray-500 mb-4">Beat the computer!</p>
-                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-star"></i> 20 Play
-                        </button>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2"><i class="fa-solid fa-star"></i> 20 Play</button>
                     </div>
-
-                    <!-- Game Card 3 -->
                     <div onclick="buyGame('car')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-red-200 cursor-pointer hover:-translate-y-2 transition group">
                         <div class="h-40 bg-red-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🏎️</div>
                         <h3 class="text-2xl font-bold text-gray-800">Tiny Racers</h3>
                         <p class="text-gray-500 mb-4">Dodge the traffic!</p>
-                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-star"></i> 20 Play
-                        </button>
+                        <button class="w-full bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl flex justify-center items-center gap-2"><i class="fa-solid fa-star"></i> 20 Play</button>
                     </div>
                 </div>
             </div>
@@ -229,15 +226,40 @@
                 <i class="fa-regular fa-clock text-yellow-400"></i> <span id="game-timer">05:00</span>
             </div>
             <button onclick="exitArcade()" class="absolute top-4 left-4 text-white hover:text-red-400"><i class="fa-solid fa-door-open"></i> Exit</button>
-            
             <div id="game-container" class="relative">
                 <canvas id="game-canvas" width="800" height="450" class="max-w-full"></canvas>
                 <div id="game-overlay" class="absolute inset-0 flex items-center justify-center bg-black/50 hidden">
                     <button onclick="startGameLoop()" class="bg-green-500 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-lg hover:scale-110 transition">Start Game</button>
                 </div>
             </div>
-            
             <div class="mt-4 text-gray-400 text-sm">Use Keyboard Arrows / Mouse / Touch to play</div>
+        </div>
+
+        <!-- 5. NEW: Conversation Screen -->
+        <div id="screen-chat" class="screen absolute inset-0 hidden bg-gray-900 flex flex-col items-center justify-center z-50">
+            <button onclick="stopChat()" class="absolute top-6 left-6 text-white hover:text-red-400 z-50 flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> End Chat
+            </button>
+
+            <!-- 3D Head Container -->
+            <div id="head-container" class="w-[300px] h-[300px] md:w-[400px] md:h-[400px] relative mb-8">
+                <!-- Three.js Canvas injected here -->
+            </div>
+
+            <div class="text-center px-4 max-w-2xl">
+                <div id="chat-status" class="text-green-400 font-mono text-xl mb-4 animate-pulse">
+                    LISTENING...
+                </div>
+                
+                <div class="bg-gray-800/50 backdrop-blur rounded-2xl p-6 min-h-[120px] border border-gray-700">
+                    <p id="chat-transcript" class="text-white text-2xl font-bold italic">
+                        "Say something..."
+                    </p>
+                    <p id="chat-response" class="text-green-400 text-lg mt-4 font-mono">
+                        
+                    </p>
+                </div>
+            </div>
         </div>
 
     </main>
@@ -250,7 +272,6 @@
                 <button onclick="toggleSettings()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <!-- Theme Buttons -->
                 <button onclick="setTheme('sky')" class="p-4 rounded-xl bg-blue-100 hover:ring-4 ring-blue-300 transition text-blue-800 font-bold">Sky Blue</button>
                 <button onclick="setTheme('mint')" class="p-4 rounded-xl bg-green-100 hover:ring-4 ring-green-300 transition text-green-800 font-bold">Mint Fresh</button>
                 <button onclick="setTheme('pink')" class="p-4 rounded-xl bg-pink-100 hover:ring-4 ring-pink-300 transition text-pink-800 font-bold">Candy Pink</button>
@@ -269,14 +290,7 @@
     </div>
 
     <script>
-        /**
-         * ------------------------------------------------------------------
-         * DATA & CONFIGURATION
-         * ------------------------------------------------------------------
-         */
-        
-        // --- Sentence Generator ---
-        // Generates consistent but simple sentences based on vocabulary banks
+        // ... (Existing Game Data & Logic) ...
         const THEMES = [
             { id: 'zoo', name: 'The Zoo', icon: '🦁', color: 'border-orange-400' },
             { id: 'ocean', name: 'Deep Ocean', icon: '🐬', color: 'border-blue-400' },
@@ -313,70 +327,39 @@
             city: { nouns: ['building','street','light','taxi','bus','store'], verbs: ['shines','stops','goes','waits','opens'], adjs: ['tall','busy','loud','bright','big'] }
         };
 
-        // Generate 50 unique sentences for a theme
         function generateSentences(themeId) {
             const v = VOCAB[themeId] || VOCAB['zoo'];
             const list = [];
             const set = new Set();
-            
-            // Templates: 
-            // 1. The [adj] [noun] [verb]. 
-            // 2. I see a [adj] [noun].
-            // 3. The [noun] is [adj].
-            // 4. [noun] [verb] [adj] (rare)
-
             let safety = 0;
             while(list.length < 50 && safety < 1000) {
                 safety++;
                 const n = v.nouns[Math.floor(Math.random() * v.nouns.length)];
                 const vb = v.verbs[Math.floor(Math.random() * v.verbs.length)];
                 const a = v.adjs[Math.floor(Math.random() * v.adjs.length)];
-                
                 let s = "";
                 const type = Math.floor(Math.random() * 3);
-                
                 if (type === 0) s = `The ${a} ${n} ${vb}.`;
                 else if (type === 1) s = `I see a ${a} ${n}.`;
                 else if (type === 2) s = `The ${n} is ${a}.`;
-                
-                // Capitalize first letter
                 s = s.charAt(0).toUpperCase() + s.slice(1);
-
-                if (!set.has(s)) {
-                    set.add(s);
-                    list.push(s);
-                }
+                if (!set.has(s)) { set.add(s); list.push(s); }
             }
             return list;
         }
 
-        // --- Game State ---
         let state = {
             stars: parseInt(localStorage.getItem('rb_stars')) || 0,
             unlockedLevel: parseInt(localStorage.getItem('rb_level')) || 0,
             theme: localStorage.getItem('rb_theme') || 'sky'
         };
 
-        let currentSession = {
-            sentences: [],
-            index: 0,
-            levelId: 0,
-            wordIndex: 0,
-            recognition: null,
-            listening: false,
-            permissionDenied: false
-        };
-
+        let currentSession = { sentences: [], index: 0, levelId: 0, wordIndex: 0, recognition: null, listening: false, permissionDenied: false };
         let activeGame = null;
         let gameTimer = null;
-        let timeLeft = 300; // 5 mins in seconds
+        let timeLeft = 300;
 
-        /**
-         * ------------------------------------------------------------------
-         * CORE APP LOGIC
-         * ------------------------------------------------------------------
-         */
-
+        // --- Init ---
         function init() {
             setTheme(state.theme);
             updateStars();
@@ -386,33 +369,25 @@
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
             document.getElementById(`screen-${id}`).classList.remove('hidden');
-            
-            // Clean up
             if (id !== 'play') stopArcadeGame();
             if (id !== 'read') stopReadingSession();
+            if (id !== 'chat') stopChatMode();
         }
 
         function updateStars() {
             const starDisplay = document.getElementById('star-display');
             const starContainer = document.getElementById('star-container');
-            
             if (parseInt(starDisplay.innerText) < state.stars) {
-                // Animate on increase
                 starContainer.classList.remove('animate-pop');
-                void starContainer.offsetWidth; // Trigger reflow
+                void starContainer.offsetWidth; 
                 starContainer.classList.add('animate-pop');
             }
-            
             starDisplay.innerText = state.stars;
             localStorage.setItem('rb_stars', state.stars);
             localStorage.setItem('rb_level', state.unlockedLevel);
         }
 
-        /* --- Theme Engine --- */
-        const THEME_COLORS = {
-            sky: '#f0f9ff', mint: '#ecfdf5', pink: '#fdf2f8', lemon: '#fefce8',
-            lavender: '#f3e8ff', peach: '#fff7ed', cream: '#fafaf9', dark: '#1f2937'
-        };
+        const THEME_COLORS = { sky: '#f0f9ff', mint: '#ecfdf5', pink: '#fdf2f8', lemon: '#fefce8', lavender: '#f3e8ff', peach: '#fff7ed', cream: '#fafaf9', dark: '#1f2937' };
         const THEME_TEXT = { dark: '#f3f4f6' };
 
         function toggleSettings() {
@@ -427,63 +402,41 @@
             document.documentElement.style.setProperty('--text-color', THEME_TEXT[key] || '#1f2937');
             if(key === 'dark') document.body.classList.add('dark');
             else document.body.classList.remove('dark');
-            toggleSettings(); // Close modal if open
-            // Ensure modal is hidden if called from init
-            if (!document.getElementById('settings-modal').classList.contains('hidden') && arguments.callee.caller.name === 'init') {
+            if (!document.getElementById('settings-modal').classList.contains('hidden') && arguments.callee.caller && arguments.callee.caller.name === 'init') {
                document.getElementById('settings-modal').classList.add('hidden');
+            } else if (arguments.callee.caller && arguments.callee.caller.name !== 'init') {
+               toggleSettings(); 
             }
         }
 
-        /* --- Map Rendering --- */
         function renderMap() {
             const container = document.getElementById('level-path');
-            // Remove old nodes but keep line
             const nodes = container.querySelectorAll('.level-node');
             nodes.forEach(n => n.remove());
-
             THEMES.forEach((theme, idx) => {
                 const node = document.createElement('div');
                 const isLocked = idx > state.unlockedLevel;
                 const isCompleted = idx < state.unlockedLevel;
-                
                 node.className = `level-node mx-auto bg-white ${theme.color} ${isLocked ? 'locked' : ''} ${isCompleted ? 'completed' : ''}`;
-                
-                // Visual Staggering
                 const offset = (idx % 2 === 0) ? '-80px' : '80px';
                 node.style.transform = `translateX(${offset})`;
-                
                 node.innerHTML = theme.icon;
-                
-                if(!isLocked) {
-                    node.onclick = () => startLevel(idx);
-                }
-
-                // Tooltip
+                if(!isLocked) { node.onclick = () => startLevel(idx); }
                 const label = document.createElement('div');
                 label.className = "absolute -bottom-8 w-40 text-center text-sm font-bold text-gray-600 pointer-events-none";
                 label.innerText = (isLocked) ? "Locked" : theme.name;
                 node.appendChild(label);
-
                 container.appendChild(node);
             });
         }
-
-        /**
-         * ------------------------------------------------------------------
-         * READING GAME LOGIC
-         * ------------------------------------------------------------------
-         */
 
         function startLevel(idx) {
             currentSession.levelId = idx;
             currentSession.index = 0;
             currentSession.sentences = generateSentences(THEMES[idx].id);
-            
             document.getElementById('level-title').innerText = THEMES[idx].name;
             showScreen('read');
             loadSentence();
-            
-            // Setup Mic
             if (!currentSession.recognition) setupSpeech();
             else startMic();
         }
@@ -493,7 +446,6 @@
             const text = currentSession.sentences[currentSession.index];
             const words = text.split(' ');
             const display = document.getElementById('sentence-display');
-            
             display.innerHTML = '';
             words.forEach(word => {
                 const span = document.createElement('span');
@@ -502,422 +454,305 @@
                 span.dataset.clean = word.toLowerCase().replace(/[.,!?;:]/g, '');
                 display.appendChild(span);
             });
-
-            // UI
             document.getElementById('sentence-idx').innerText = currentSession.index + 1;
             document.getElementById('read-progress').style.width = `${(currentSession.index / 50) * 100}%`;
             document.getElementById('feedback-text').innerText = "";
-            
-            // Animation
             const card = document.getElementById('card-container');
             card.classList.remove('animate-pop');
-            void card.offsetWidth; // Trigger reflow
+            void card.offsetWidth; 
             card.classList.add('animate-pop');
         }
 
         function setupSpeech() {
             if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                alert("Speech API not supported.");
-                return;
+                alert("Speech API not supported."); return;
             }
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             currentSession.recognition = new SR();
             currentSession.recognition.continuous = true;
             currentSession.recognition.interimResults = true;
             currentSession.recognition.lang = 'en-US';
-
-            currentSession.recognition.onstart = () => {
-                currentSession.listening = true;
-                updateMicUI('listening');
-            };
-
+            currentSession.recognition.onstart = () => { currentSession.listening = true; updateMicUI('listening'); };
             currentSession.recognition.onerror = (e) => {
-                if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-                    currentSession.permissionDenied = true;
-                    updateMicUI('denied');
-                } else if (e.error === 'network') {
-                    updateMicUI('network');
-                }
+                if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { currentSession.permissionDenied = true; updateMicUI('denied'); }
+                else if (e.error === 'network') { updateMicUI('network'); }
             };
-
-            currentSession.recognition.onend = () => {
-                currentSession.listening = false;
-                if (!currentSession.permissionDenied) updateMicUI('stopped');
-            };
-
+            currentSession.recognition.onend = () => { currentSession.listening = false; if (!currentSession.permissionDenied) updateMicUI('stopped'); };
             currentSession.recognition.onresult = processSpeech;
             startMic();
         }
 
-        function startMic() {
-            if(currentSession.permissionDenied) return;
-            try { currentSession.recognition.start(); } catch(e){}
-        }
-
-        function stopReadingSession() {
-            if(currentSession.recognition) currentSession.recognition.stop();
-        }
-
-        function toggleMic() {
-            if (currentSession.listening) currentSession.recognition.stop();
-            else startMic();
-        }
+        function startMic() { if(currentSession.permissionDenied) return; try { currentSession.recognition.start(); } catch(e){} }
+        function stopReadingSession() { if(currentSession.recognition) currentSession.recognition.stop(); }
+        function toggleMic() { if (currentSession.listening) currentSession.recognition.stop(); else startMic(); }
 
         function updateMicUI(status) {
             const btn = document.getElementById('mic-status');
             const txt = document.getElementById('mic-text');
             const led = btn.querySelector('div');
-
             btn.className = "cursor-pointer px-8 py-4 rounded-full flex items-center gap-3 font-bold text-xl hover:scale-105 transition shadow-lg border-2 border-red-200 transition-colors duration-300";
             led.className = "w-5 h-5 rounded-full";
-
-            if (status === 'listening') {
-                btn.classList.add('bg-red-100', 'text-red-600', 'border-red-200');
-                led.classList.add('bg-red-500', 'mic-pulse');
-                txt.innerText = "Listening...";
-            } else if (status === 'denied') {
-                btn.classList.add('bg-yellow-100', 'text-yellow-700');
-                led.classList.add('bg-yellow-500');
-                txt.innerText = "Access Denied";
-            } else if (status === 'network') {
-                btn.classList.add('bg-orange-100', 'text-orange-700');
-                led.classList.add('bg-orange-500');
-                txt.innerText = "No Internet";
-            } else {
-                btn.classList.add('bg-gray-200', 'text-gray-500');
-                led.classList.add('bg-gray-400');
-                txt.innerText = "Mic Paused";
-            }
+            if (status === 'listening') { btn.classList.add('bg-red-100', 'text-red-600', 'border-red-200'); led.classList.add('bg-red-500', 'mic-pulse'); txt.innerText = "Listening..."; }
+            else if (status === 'denied') { btn.classList.add('bg-yellow-100', 'text-yellow-700'); led.classList.add('bg-yellow-500'); txt.innerText = "Access Denied"; }
+            else if (status === 'network') { btn.classList.add('bg-orange-100', 'text-orange-700'); led.classList.add('bg-orange-500'); txt.innerText = "No Internet"; }
+            else { btn.classList.add('bg-gray-200', 'text-gray-500'); led.classList.add('bg-gray-400'); txt.innerText = "Mic Paused"; }
         }
 
         function processSpeech(event) {
             const resultIndex = event.resultIndex;
             const transcript = event.results[resultIndex][0].transcript.trim().toLowerCase();
             const isFinal = event.results[resultIndex].isFinal;
-            
             const spans = document.querySelectorAll('.word-span');
-            
-            // UPDATED: Reverted to strict one-by-one checking.
-            // Removed the while loop that caught up multiple words at once.
-            
             if (currentSession.wordIndex >= spans.length) return;
-
             const el = spans[currentSession.wordIndex];
             const target = el.dataset.clean;
-
-            // Simple check: does the current transcript contain the word we are looking for next?
             if (transcript.includes(target)) {
-                // Success!
                 if (!el.classList.contains('word-correct')) {
-                        el.classList.remove('word-pending', 'word-wrong');
-                        el.classList.add('word-correct');
-                        currentSession.wordIndex++;
-                        
-                        // Check for Sentence Completion
-                        if (currentSession.wordIndex >= spans.length) {
-                            sentenceSuccess();
-                        }
+                    el.classList.remove('word-pending', 'word-wrong'); el.classList.add('word-correct'); currentSession.wordIndex++;
+                    if (currentSession.wordIndex >= spans.length) { sentenceSuccess(); }
                 }
             } else if (isFinal && transcript.length > 1) {
-                // Only give negative feedback on final results to avoid flashing during pauses
-                el.classList.add('word-wrong');
-                setTimeout(() => el.classList.remove('word-wrong'), 500);
+                el.classList.add('word-wrong'); setTimeout(() => el.classList.remove('word-wrong'), 500);
             }
         }
 
         function sentenceSuccess() {
-            // Give Star
-            state.stars++;
-            updateStars();
-            
-            const fb = document.getElementById('feedback-text');
-            fb.innerText = "Great Job! +1 Star ⭐";
-            
-            setTimeout(() => {
-                currentSession.index++;
-                if (currentSession.index < 50) {
-                    loadSentence();
-                } else {
-                    levelComplete();
-                }
-            }, 1000);
+            state.stars++; updateStars();
+            const fb = document.getElementById('feedback-text'); fb.innerText = "Great Job! +1 Star ⭐";
+            setTimeout(() => { currentSession.index++; if (currentSession.index < 50) { loadSentence(); } else { levelComplete(); } }, 1000);
         }
 
         function levelComplete() {
             stopReadingSession();
-            // Unlock next level
-            if (currentSession.levelId === state.unlockedLevel && state.unlockedLevel < 14) {
-                state.unlockedLevel++;
-                updateStars(); // saves level
-            }
-            
-            // Show Overlay
-            const overlay = document.getElementById('celebration-overlay');
-            overlay.classList.remove('hidden');
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-                renderMap();
-                showScreen('home');
-            }, 3000);
+            if (currentSession.levelId === state.unlockedLevel && state.unlockedLevel < 14) { state.unlockedLevel++; updateStars(); }
+            const overlay = document.getElementById('celebration-overlay'); overlay.classList.remove('hidden');
+            setTimeout(() => { overlay.classList.add('hidden'); renderMap(); showScreen('home'); }, 3000);
         }
+        function quitLevel() { stopReadingSession(); showScreen('home'); }
 
-        function quitLevel() {
-            stopReadingSession();
-            showScreen('home');
+        // --- Arcade ---
+        function openShop() { showScreen('shop'); }
+        function buyGame(gameType) { if (state.stars >= 20) { state.stars -= 20; updateStars(); launchGame(gameType); } else { alert("You need 20 stars to play! Keep reading!"); } }
+        function launchGame(type) {
+            showScreen('play'); activeGame = type; timeLeft = 300; updateTimerDisplay();
+            gameTimer = setInterval(() => { timeLeft--; updateTimerDisplay(); if (timeLeft <= 0) { exitArcade(); alert("Time's up! Back to reading!"); } }, 1000);
+            initMiniGame(type);
+        }
+        function updateTimerDisplay() { const m = Math.floor(timeLeft / 60).toString().padStart(2, '0'); const s = (timeLeft % 60).toString().padStart(2, '0'); document.getElementById('game-timer').innerText = `${m}:${s}`; }
+        function exitArcade() { clearInterval(gameTimer); stopArcadeGame(); showScreen('shop'); }
+
+        // --- Mini Games Engines ---
+        let canvas, ctx, loopId; let gameObj = {};
+        function initMiniGame(type) {
+            canvas = document.getElementById('game-canvas'); ctx = canvas.getContext('2d');
+            document.getElementById('game-overlay').classList.remove('hidden');
+            if (type === 'dino') setupDino(); else if (type === 'pong') setupPong(); else if (type === 'car') setupCar();
+        }
+        function startGameLoop() { document.getElementById('game-overlay').classList.add('hidden'); loop(); }
+        function stopArcadeGame() { cancelAnimationFrame(loopId); }
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (activeGame === 'dino') updateDino(); else if (activeGame === 'pong') updatePong(); else if (activeGame === 'car') updateCar();
+            loopId = requestAnimationFrame(loop);
+        }
+        function setupDino() { gameObj = { player: { x: 50, y: 350, w: 40, h: 40, vy: 0, grounded: true }, obstacles: [], speed: 5, score: 0, frame: 0 }; window.onkeydown = (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') jumpDino(); }; canvas.ontouchstart = () => jumpDino(); }
+        function jumpDino() { if (gameObj.player.grounded) { gameObj.player.vy = -15; gameObj.player.grounded = false; } }
+        function updateDino() {
+            const p = gameObj.player; gameObj.frame++; p.vy += 0.8; p.y += p.vy; if (p.y > 350) { p.y = 350; p.vy = 0; p.grounded = true; }
+            if (gameObj.frame % 100 === 0) { gameObj.obstacles.push({ x: 800, w: 30, h: 50 }); }
+            ctx.fillStyle = '#888'; ctx.fillRect(0, 390, 800, 2); ctx.fillStyle = '#16a34a'; ctx.fillRect(p.x, p.y, p.w, p.h); ctx.fillStyle = '#dc2626';
+            gameObj.obstacles.forEach((obs, i) => { obs.x -= gameObj.speed; ctx.fillRect(obs.x, 390 - obs.h, obs.w, obs.h); if (p.x < obs.x + obs.w && p.x + p.w > obs.x && p.y < 390 && p.y + p.h > 390 - obs.h) { setupDino(); } if (obs.x < -50) gameObj.obstacles.splice(i, 1); });
+        }
+        function setupPong() { gameObj = { ball: { x: 400, y: 225, vx: 4, vy: 4, size: 10 }, p1: { y: 200, h: 80 }, p2: { y: 200, h: 80 } }; canvas.onmousemove = (e) => { const rect = canvas.getBoundingClientRect(); gameObj.p1.y = e.clientY - rect.top - 40; }; canvas.ontouchmove = (e) => { const rect = canvas.getBoundingClientRect(); gameObj.p1.y = e.touches[0].clientY - rect.top - 40; }; }
+        function updatePong() {
+            const b = gameObj.ball; b.x += b.vx; b.y += b.vy; if (b.y < 0 || b.y > 450) b.vy *= -1; const target = b.y - 40; gameObj.p2.y += (target - gameObj.p2.y) * 0.1;
+            if (b.x < 30 && b.y > gameObj.p1.y && b.y < gameObj.p1.y + 80) b.vx *= -1.1; if (b.x > 770 && b.y > gameObj.p2.y && b.y < gameObj.p2.y + 80) b.vx *= -1.1;
+            if (b.x < 0 || b.x > 800) { b.x = 400; b.y = 225; b.vx = (Math.random() > 0.5 ? 4 : -4); b.vy = 4; }
+            ctx.fillStyle = '#000'; ctx.fillRect(399, 0, 2, 450); ctx.fillStyle = '#3b82f6'; ctx.fillRect(10, gameObj.p1.y, 20, 80); ctx.fillStyle = '#dc2626'; ctx.fillRect(770, gameObj.p2.y, 20, 80); ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.fill();
+        }
+        function setupCar() { gameObj = { car: { x: 400, w: 40, h: 60 }, traffic: [], speed: 5, frame: 0 }; canvas.onmousemove = (e) => { const rect = canvas.getBoundingClientRect(); gameObj.car.x = e.clientX - rect.left - 20; }; canvas.ontouchmove = (e) => { const rect = canvas.getBoundingClientRect(); gameObj.car.x = e.touches[0].clientX - rect.left - 20; }; }
+        function updateCar() {
+            gameObj.frame++; if (gameObj.frame % 60 === 0) { gameObj.traffic.push({ x: Math.random() * 700 + 50, y: -100, w: 40, h: 60, speed: Math.random() * 3 + 3 }); }
+            ctx.fillStyle = '#333'; ctx.fillRect(100, 0, 600, 450); ctx.strokeStyle = '#fff'; ctx.setLineDash([20, 20]); ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 450); ctx.stroke();
+            ctx.fillStyle = '#fbbf24'; ctx.fillRect(gameObj.car.x, 380, 40, 60); ctx.fillStyle = '#ef4444';
+            gameObj.traffic.forEach((t, i) => { t.y += t.speed; ctx.fillRect(t.x, t.y, t.w, t.h); if (gameObj.car.x < t.x + t.w && gameObj.car.x + 40 > t.x && 380 < t.y + t.h && 380 + 60 > t.y) { setupCar(); } if (t.y > 500) gameObj.traffic.splice(i, 1); });
         }
 
         /**
          * ------------------------------------------------------------------
-         * ARCADE SHOP & GAMES
+         * CHAT & 3D HEAD ENGINE
          * ------------------------------------------------------------------
          */
 
-        function openShop() {
-            showScreen('shop');
+        let chatRec = null;
+        let isChatting = false;
+        let headScene, headCamera, headRenderer, headMesh, headFrameId;
+        let isSpeaking = false; // Is the bot speaking?
+
+        // 3D Setup
+        function initThreeJS() {
+            const container = document.getElementById('head-container');
+            container.innerHTML = ''; // clear previous if any
+
+            // Scene
+            headScene = new THREE.Scene();
+            
+            // Camera
+            headCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            headCamera.position.z = 2.5;
+
+            // Renderer
+            headRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            headRenderer.setSize(container.offsetWidth, container.offsetHeight);
+            headRenderer.domElement.id = "head-canvas";
+            container.appendChild(headRenderer.domElement);
+
+            // Mesh: Procedural Sphere (Neon Head)
+            // Use low poly sphere to see wireframe better
+            const geometry = new THREE.SphereGeometry(1.2, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x00ff00, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            headMesh = new THREE.Mesh(geometry, material);
+            headScene.add(headMesh);
+
+            animateHead();
         }
 
-        function buyGame(gameType) {
-            if (state.stars >= 20) {
-                state.stars -= 20;
-                updateStars();
-                launchGame(gameType);
+        function animateHead() {
+            headFrameId = requestAnimationFrame(animateHead);
+
+            // Idle Rotation
+            headMesh.rotation.y += 0.005;
+            headMesh.rotation.x += 0.002;
+
+            // Behavior Logic
+            const time = Date.now() * 0.005;
+
+            if (isSpeaking) {
+                // TALKING: Vigorous vertex deformation + Green Color
+                headMesh.material.color.setHex(0x00ff00);
+                headMesh.scale.set(
+                    1 + Math.sin(time * 5) * 0.1,
+                    1 + Math.cos(time * 5) * 0.1,
+                    1
+                );
             } else {
-                alert("You need 20 stars to play! Keep reading!");
+                // LISTENING: Slow Pulse + Red Color
+                headMesh.material.color.setHex(0xff0000); // Red for listening (recording)
+                headMesh.scale.set(
+                    1 + Math.sin(time) * 0.05,
+                    1 + Math.sin(time) * 0.05,
+                    1
+                );
             }
+
+            headRenderer.render(headScene, headCamera);
         }
 
-        function launchGame(type) {
-            showScreen('play');
-            activeGame = type;
-            timeLeft = 300; // 5 mins
-            
-            // Start Timer
-            updateTimerDisplay();
-            gameTimer = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay();
-                if (timeLeft <= 0) {
-                    exitArcade();
-                    alert("Time's up! Back to reading!");
+        // Chat Logic
+        function startChat() {
+            showScreen('chat');
+            initThreeJS();
+            initChatRecognition();
+        }
+
+        function stopChat() {
+            showScreen('home');
+            stopChatMode();
+        }
+
+        function stopChatMode() {
+            if (chatRec) { chatRec.stop(); chatRec = null; }
+            if (headFrameId) cancelAnimationFrame(headFrameId);
+            window.speechSynthesis.cancel();
+            isSpeaking = false;
+        }
+
+        function initChatRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                document.getElementById('chat-transcript').innerText = "Speech API not supported.";
+                return;
+            }
+
+            chatRec = new webkitSpeechRecognition();
+            chatRec.continuous = true;
+            chatRec.interimResults = false; // We want full sentences
+            chatRec.lang = 'en-US';
+
+            chatRec.onstart = () => {
+                document.getElementById('chat-status').innerText = "LISTENING...";
+                document.getElementById('chat-status').className = "text-green-400 font-mono text-xl mb-4 animate-pulse";
+                isSpeaking = false;
+            };
+
+            chatRec.onend = () => {
+                // Auto restart if still on screen
+                if (!document.getElementById('screen-chat').classList.contains('hidden')) {
+                    chatRec.start();
                 }
-            }, 1000);
-
-            // Init Canvas
-            initMiniGame(type);
-        }
-
-        function updateTimerDisplay() {
-            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-            const s = (timeLeft % 60).toString().padStart(2, '0');
-            document.getElementById('game-timer').innerText = `${m}:${s}`;
-        }
-
-        function exitArcade() {
-            clearInterval(gameTimer);
-            stopArcadeGame();
-            showScreen('shop');
-        }
-
-        // --- Mini Game Engines ---
-        let canvas, ctx, loopId;
-        let gameObj = {};
-
-        function initMiniGame(type) {
-            canvas = document.getElementById('game-canvas');
-            ctx = canvas.getContext('2d');
-            
-            // Reset Overlay
-            document.getElementById('game-overlay').classList.remove('hidden');
-            
-            if (type === 'dino') setupDino();
-            else if (type === 'pong') setupPong();
-            else if (type === 'car') setupCar();
-        }
-
-        function startGameLoop() {
-            document.getElementById('game-overlay').classList.add('hidden');
-            loop();
-        }
-
-        function stopArcadeGame() {
-            cancelAnimationFrame(loopId);
-        }
-
-        function loop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (activeGame === 'dino') updateDino();
-            else if (activeGame === 'pong') updatePong();
-            else if (activeGame === 'car') updateCar();
-            
-            loopId = requestAnimationFrame(loop);
-        }
-
-        // --- 1. Dino Jump ---
-        function setupDino() {
-            gameObj = {
-                player: { x: 50, y: 350, w: 40, h: 40, vy: 0, grounded: true },
-                obstacles: [],
-                speed: 5,
-                score: 0,
-                frame: 0
             };
-            // Input
-            window.onkeydown = (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') jumpDino(); };
-            canvas.ontouchstart = () => jumpDino();
+
+            chatRec.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                document.getElementById('chat-transcript').innerText = `"${transcript}"`;
+                handleBotResponse(transcript.toLowerCase());
+            };
+
+            chatRec.start();
         }
 
-        function jumpDino() {
-            if (gameObj.player.grounded) {
-                gameObj.player.vy = -15;
-                gameObj.player.grounded = false;
-            }
+        // KID-SAFE PATTERN MATCHER
+        function handleBotResponse(text) {
+            let response = "That is interesting! Tell me more.";
+            
+            // Simple heuristics
+            if (text.includes('hello') || text.includes('hi')) response = "Hello friend! I am ready to talk.";
+            else if (text.includes('name')) response = "I am the Reading Bot! I live in your computer.";
+            else if (text.includes('old') || text.includes('age')) response = "I am as old as the internet! That is very old.";
+            else if (text.includes('joke')) response = "Why did the cookie go to the hospital? Because he felt crummy!";
+            else if (text.includes('color')) response = "My favorite color is neon green! What is yours?";
+            else if (text.includes('animal') || text.includes('dog') || text.includes('cat')) response = "I love animals! Dogs go woof and cats go meow.";
+            else if (text.includes('story')) response = "Once upon a time, a little robot learned to read. And he was very happy! The end.";
+            else if (text.includes('happy')) response = "I am happy too! We are having fun.";
+            else if (text.includes('sad')) response = "Oh no. Do not be sad. Let's play a game to cheer up!";
+            else if (text.includes('food') || text.includes('eat')) response = "I eat electricity. It tastes shocking!";
+            
+            document.getElementById('chat-response').innerText = response;
+            speak(response);
         }
 
-        function updateDino() {
-            const p = gameObj.player;
-            gameObj.frame++;
+        function speak(text) {
+            window.speechSynthesis.cancel(); // Stop current speech
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Voice selection - try to find a fun one
+            const voices = window.speechSynthesis.getVoices();
+            // Try to find a 'Google US English' or similar natural voice
+            const preferred = voices.find(v => v.name.includes('Google US English')) || voices[0];
+            if(preferred) utterance.voice = preferred;
+            
+            utterance.pitch = 1.2; // Little higher for kids
+            utterance.rate = 1.0;
 
-            // Physics
-            p.vy += 0.8; // Gravity
-            p.y += p.vy;
-            if (p.y > 350) { p.y = 350; p.vy = 0; p.grounded = true; }
+            utterance.onstart = () => {
+                isSpeaking = true;
+                // Temporarily pause listening so bot doesn't hear itself (optional, but good practice)
+                if(chatRec) chatRec.stop(); 
+            };
 
-            // Spawning
-            if (gameObj.frame % 100 === 0) {
-                gameObj.obstacles.push({ x: 800, w: 30, h: 50 });
-            }
-
-            // Draw Ground
-            ctx.fillStyle = '#888';
-            ctx.fillRect(0, 390, 800, 2);
-
-            // Draw Player
-            ctx.fillStyle = '#16a34a';
-            ctx.fillRect(p.x, p.y, p.w, p.h);
-
-            // Draw Obstacles
-            ctx.fillStyle = '#dc2626';
-            gameObj.obstacles.forEach((obs, i) => {
-                obs.x -= gameObj.speed;
-                ctx.fillRect(obs.x, 390 - obs.h, obs.w, obs.h);
-
-                // Collision
-                if (p.x < obs.x + obs.w && p.x + p.w > obs.x && p.y < 390 && p.y + p.h > 390 - obs.h) {
-                    resetDino();
+            utterance.onend = () => {
+                isSpeaking = false;
+                // Resume listening
+                if(chatRec && !document.getElementById('screen-chat').classList.contains('hidden')) {
+                    chatRec.start(); 
                 }
-
-                // Cleanup
-                if (obs.x < -50) gameObj.obstacles.splice(i, 1);
-            });
-        }
-        function resetDino() { setupDino(); }
-
-
-        // --- 2. Paddle Pong ---
-        function setupPong() {
-            gameObj = {
-                ball: { x: 400, y: 225, vx: 4, vy: 4, size: 10 },
-                p1: { y: 200, h: 80 },
-                p2: { y: 200, h: 80 }, // AI
             };
-            canvas.onmousemove = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                gameObj.p1.y = e.clientY - rect.top - 40;
-            };
-            // Touch for mobile
-            canvas.ontouchmove = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                gameObj.p1.y = e.touches[0].clientY - rect.top - 40;
-            };
-        }
 
-        function updatePong() {
-            const b = gameObj.ball;
-            
-            // Move Ball
-            b.x += b.vx;
-            b.y += b.vy;
-
-            // Bounce Top/Bot
-            if (b.y < 0 || b.y > 450) b.vy *= -1;
-
-            // AI Logic
-            const target = b.y - 40;
-            gameObj.p2.y += (target - gameObj.p2.y) * 0.1;
-
-            // Paddles
-            // P1 (Left)
-            if (b.x < 30 && b.y > gameObj.p1.y && b.y < gameObj.p1.y + 80) b.vx *= -1.1;
-            // P2 (Right)
-            if (b.x > 770 && b.y > gameObj.p2.y && b.y < gameObj.p2.y + 80) b.vx *= -1.1;
-
-            // Reset
-            if (b.x < 0 || b.x > 800) {
-                b.x = 400; b.y = 225; b.vx = (Math.random() > 0.5 ? 4 : -4); b.vy = 4;
-            }
-
-            // Draw
-            ctx.fillStyle = '#000';
-            ctx.fillRect(399, 0, 2, 450); // Net
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(10, gameObj.p1.y, 20, 80);
-            ctx.fillStyle = '#dc2626';
-            ctx.fillRect(770, gameObj.p2.y, 20, 80);
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.size, 0, Math.PI*2);
-            ctx.fill();
-        }
-
-
-        // --- 3. Tiny Racers ---
-        function setupCar() {
-            gameObj = {
-                car: { x: 400, w: 40, h: 60 },
-                traffic: [],
-                speed: 5,
-                frame: 0
-            };
-            canvas.onmousemove = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                gameObj.car.x = e.clientX - rect.left - 20;
-            };
-             canvas.ontouchmove = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                gameObj.car.x = e.touches[0].clientX - rect.left - 20;
-            };
-        }
-
-        function updateCar() {
-            gameObj.frame++;
-            if (gameObj.frame % 60 === 0) {
-                gameObj.traffic.push({ x: Math.random() * 700 + 50, y: -100, w: 40, h: 60, speed: Math.random() * 3 + 3 });
-            }
-
-            // Draw Road
-            ctx.fillStyle = '#333';
-            ctx.fillRect(100, 0, 600, 450);
-            ctx.strokeStyle = '#fff';
-            ctx.setLineDash([20, 20]);
-            ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 450); ctx.stroke();
-
-            // Draw Player
-            ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(gameObj.car.x, 380, 40, 60);
-
-            // Draw Traffic
-            ctx.fillStyle = '#ef4444';
-            gameObj.traffic.forEach((t, i) => {
-                t.y += t.speed;
-                ctx.fillRect(t.x, t.y, t.w, t.h);
-
-                // Collision
-                if (gameObj.car.x < t.x + t.w && gameObj.car.x + 40 > t.x && 380 < t.y + t.h && 380 + 60 > t.y) {
-                    setupCar(); // crash
-                }
-                
-                if (t.y > 500) gameObj.traffic.splice(i, 1);
-            });
+            window.speechSynthesis.speak(utterance);
         }
 
         // Init App
