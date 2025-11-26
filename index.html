@@ -118,7 +118,7 @@
             <button onclick="showScreen('home')" class="text-2xl text-blue-500 hover:scale-110 transition p-2"><i class="fa-solid fa-house"></i></button>
             <button onclick="toggleSettings()" class="ml-2 text-2xl text-gray-500 hover:rotate-90 transition duration-500 p-2"><i class="fa-solid fa-gear"></i></button>
             
-            <!-- NEW: Chat Button -->
+            <!-- Chat Button -->
             <button onclick="startChat()" class="ml-2 text-2xl text-green-500 hover:scale-110 transition p-2 bg-green-50 rounded-full border border-green-200 shadow-sm" title="Talk to Reading Bot">
                 <i class="fa-solid fa-comments"></i>
             </button>
@@ -159,7 +159,7 @@
             <div class="w-full max-w-4xl px-4 flex flex-col items-center h-full justify-center">
                 <!-- Progress Header -->
                 <div class="w-full flex justify-between items-end mb-4 max-w-2xl">
-                    <button onclick="quitLevel()" class="text-gray-400 hover:text-red-500 font-bold text-sm"><i class="fa-solid fa-arrow-left"></i> Quit</button>
+                    <button onclick="quitLevel()" class="text-gray-400 hover:text-red-500 font-bold text-sm"><i class="fa-solid fa-arrow-left"></i> Save & Quit</button>
                     <div class="flex flex-col items-center">
                         <span class="text-lg font-bold text-blue-500" id="level-title">The Zoo</span>
                         <div class="w-48 h-3 bg-gray-200 rounded-full mt-1 overflow-hidden">
@@ -182,7 +182,7 @@
                         <div class="w-5 h-5 bg-red-500 rounded-full mic-pulse"></div>
                         <span id="mic-text">Listening...</span>
                     </div>
-                    <p class="text-gray-400 text-sm">(Tap button to restart mic)</p>
+                    <p class="text-gray-400 text-sm">(Tap button to manually start/stop)</p>
                     <p id="feedback-text" class="h-8 text-xl font-bold text-blue-500 transition-opacity"></p>
                 </div>
             </div>
@@ -197,7 +197,7 @@
                     <p class="text-xl text-gray-600">Spend 20 Stars to play for 5 minutes!</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <!-- Game Cards (Dino, Pong, Car) -->
+                    <!-- Game Cards -->
                     <div onclick="buyGame('dino')" class="bg-white p-6 rounded-3xl shadow-lg border-b-8 border-purple-200 cursor-pointer hover:-translate-y-2 transition group">
                         <div class="h-40 bg-green-100 rounded-2xl mb-4 flex items-center justify-center text-6xl group-hover:scale-110 transition">🦖</div>
                         <h3 class="text-2xl font-bold text-gray-800">Dino Jump</h3>
@@ -235,16 +235,14 @@
             <div class="mt-4 text-gray-400 text-sm">Use Keyboard Arrows / Mouse / Touch to play</div>
         </div>
 
-        <!-- 5. NEW: Conversation Screen -->
+        <!-- 5. Conversation Screen -->
         <div id="screen-chat" class="screen absolute inset-0 hidden bg-gray-900 flex flex-col items-center justify-center z-50">
             <button onclick="stopChat()" class="absolute top-6 left-6 text-white hover:text-red-400 z-50 flex items-center gap-2">
                 <i class="fa-solid fa-arrow-left"></i> End Chat
             </button>
 
             <!-- 3D Head Container -->
-            <div id="head-container" class="w-[300px] h-[300px] md:w-[400px] md:h-[400px] relative mb-8">
-                <!-- Three.js Canvas injected here -->
-            </div>
+            <div id="head-container" class="w-[300px] h-[300px] md:w-[400px] md:h-[400px] relative mb-8"></div>
 
             <div class="text-center px-4 max-w-2xl">
                 <div id="chat-status" class="text-green-400 font-mono text-xl mb-4 animate-pulse">
@@ -350,7 +348,7 @@
 
         let state = {
             stars: parseInt(localStorage.getItem('rb_stars')) || 0,
-            unlockedLevel: parseInt(localStorage.getItem('rb_level')) || 0,
+            unlockedLevel: 14, // Force UNLOCK ALL for this request
             theme: localStorage.getItem('rb_theme') || 'sky'
         };
 
@@ -364,6 +362,18 @@
             setTheme(state.theme);
             updateStars();
             renderMap();
+        }
+
+        // --- Progress Persistence Helpers ---
+        function getLevelProgress(themeId) {
+            const data = JSON.parse(localStorage.getItem('rb_progress') || '{}');
+            return data[themeId] || 0;
+        }
+
+        function saveLevelProgress(themeId, index) {
+            const data = JSON.parse(localStorage.getItem('rb_progress') || '{}');
+            data[themeId] = index;
+            localStorage.setItem('rb_progress', JSON.stringify(data));
         }
 
         function showScreen(id) {
@@ -417,14 +427,20 @@
                 const node = document.createElement('div');
                 const isLocked = idx > state.unlockedLevel;
                 const isCompleted = idx < state.unlockedLevel;
-                node.className = `level-node mx-auto bg-white ${theme.color} ${isLocked ? 'locked' : ''} ${isCompleted ? 'completed' : ''}`;
+                // Force unlock styling since we are forcing unlock
+                const displayLocked = false; 
+                
+                node.className = `level-node mx-auto bg-white ${theme.color} ${displayLocked ? 'locked' : ''} ${isCompleted ? 'completed' : ''}`;
                 const offset = (idx % 2 === 0) ? '-80px' : '80px';
                 node.style.transform = `translateX(${offset})`;
                 node.innerHTML = theme.icon;
-                if(!isLocked) { node.onclick = () => startLevel(idx); }
+                
+                // Always clickable now
+                node.onclick = () => startLevel(idx);
+                
                 const label = document.createElement('div');
                 label.className = "absolute -bottom-8 w-40 text-center text-sm font-bold text-gray-600 pointer-events-none";
-                label.innerText = (isLocked) ? "Locked" : theme.name;
+                label.innerText = theme.name;
                 node.appendChild(label);
                 container.appendChild(node);
             });
@@ -432,8 +448,13 @@
 
         function startLevel(idx) {
             currentSession.levelId = idx;
-            currentSession.index = 0;
             currentSession.sentences = generateSentences(THEMES[idx].id);
+            
+            // Load saved progress
+            const savedIndex = getLevelProgress(THEMES[idx].id);
+            // If completed (50), reset to 0, otherwise start where left off
+            currentSession.index = (savedIndex >= 50) ? 0 : savedIndex;
+            
             document.getElementById('level-title').innerText = THEMES[idx].name;
             showScreen('read');
             loadSentence();
@@ -477,14 +498,41 @@
                 if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { currentSession.permissionDenied = true; updateMicUI('denied'); }
                 else if (e.error === 'network') { updateMicUI('network'); }
             };
-            currentSession.recognition.onend = () => { currentSession.listening = false; if (!currentSession.permissionDenied) updateMicUI('stopped'); };
+            
+            // AUTO RESTART LOGIC
+            currentSession.recognition.onend = () => { 
+                if (currentSession.listening && !currentSession.permissionDenied) {
+                    // Try to restart automatically if it wasn't manually stopped
+                    try { currentSession.recognition.start(); } catch(e){}
+                } else {
+                    currentSession.listening = false; 
+                    updateMicUI('stopped'); 
+                }
+            };
+            
             currentSession.recognition.onresult = processSpeech;
             startMic();
         }
 
-        function startMic() { if(currentSession.permissionDenied) return; try { currentSession.recognition.start(); } catch(e){} }
-        function stopReadingSession() { if(currentSession.recognition) currentSession.recognition.stop(); }
-        function toggleMic() { if (currentSession.listening) currentSession.recognition.stop(); else startMic(); }
+        function startMic() { 
+            if(currentSession.permissionDenied) return; 
+            currentSession.listening = true; // Mark as intended state
+            try { currentSession.recognition.start(); } catch(e){} 
+        }
+        
+        function stopReadingSession() { 
+            currentSession.listening = false; // Mark as intentionally stopped
+            if(currentSession.recognition) currentSession.recognition.stop(); 
+        }
+        
+        function toggleMic() { 
+            if (currentSession.listening) {
+                currentSession.listening = false; // Intentionally stop
+                currentSession.recognition.stop(); 
+            } else { 
+                startMic(); 
+            } 
+        }
 
         function updateMicUI(status) {
             const btn = document.getElementById('mic-status');
@@ -519,12 +567,29 @@
         function sentenceSuccess() {
             state.stars++; updateStars();
             const fb = document.getElementById('feedback-text'); fb.innerText = "Great Job! +1 Star ⭐";
-            setTimeout(() => { currentSession.index++; if (currentSession.index < 50) { loadSentence(); } else { levelComplete(); } }, 1000);
+            
+            // SAVE PROGRESS HERE
+            // Increment the index first, then save it
+            let nextIndex = currentSession.index + 1;
+            saveLevelProgress(THEMES[currentSession.levelId].id, nextIndex);
+            
+            setTimeout(() => { 
+                currentSession.index++; 
+                if (currentSession.index < 50) { 
+                    loadSentence(); 
+                } else { 
+                    levelComplete(); 
+                } 
+            }, 1000);
         }
 
         function levelComplete() {
             stopReadingSession();
-            if (currentSession.levelId === state.unlockedLevel && state.unlockedLevel < 14) { state.unlockedLevel++; updateStars(); }
+            // All levels are already unlocked now, but we can still track max level if needed for badges later
+            if (currentSession.levelId > state.unlockedLevel) { 
+                // state.unlockedLevel = currentSession.levelId; 
+                // updateStars(); 
+            }
             const overlay = document.getElementById('celebration-overlay'); overlay.classList.remove('hidden');
             setTimeout(() => { overlay.classList.add('hidden'); renderMap(); showScreen('home'); }, 3000);
         }
