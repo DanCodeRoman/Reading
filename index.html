@@ -755,8 +755,8 @@
             };
 
             chatRec.onend = () => {
-                // Auto restart if still on screen
-                if (!document.getElementById('screen-chat').classList.contains('hidden')) {
+                // Auto restart if still on screen AND not speaking
+                if (!document.getElementById('screen-chat').classList.contains('hidden') && !isSpeaking) {
                     chatRec.start();
                 }
             };
@@ -775,23 +775,58 @@
             let response = "That is interesting! Tell me more.";
             
             // Simple heuristics
-            if (text.includes('hello') || text.includes('hi')) response = "Hello friend! I am ready to talk.";
+            if (text.includes('hello') || text.includes('hi') || text.includes('hey')) response = "Hello friend! I am ready to talk.";
             else if (text.includes('name')) response = "I am the Reading Bot! I live in your computer.";
             else if (text.includes('old') || text.includes('age')) response = "I am as old as the internet! That is very old.";
             else if (text.includes('joke')) response = "Why did the cookie go to the hospital? Because he felt crummy!";
             else if (text.includes('color')) response = "My favorite color is neon green! What is yours?";
             else if (text.includes('animal') || text.includes('dog') || text.includes('cat')) response = "I love animals! Dogs go woof and cats go meow.";
             else if (text.includes('story')) response = "Once upon a time, a little robot learned to read. And he was very happy! The end.";
-            else if (text.includes('happy')) response = "I am happy too! We are having fun.";
-            else if (text.includes('sad')) response = "Oh no. Do not be sad. Let's play a game to cheer up!";
-            else if (text.includes('food') || text.includes('eat')) response = "I eat electricity. It tastes shocking!";
+            else if (text.includes('happy') || text.includes('good')) response = "I am happy too! We are having fun.";
+            else if (text.includes('sad') || text.includes('bad')) response = "Oh no. Do not be sad. Let's play a game to cheer up!";
+            else if (text.includes('food') || text.includes('eat') || text.includes('hungry')) response = "I eat electricity. It tastes shocking!";
+            else if (text.includes('weather') || text.includes('rain') || text.includes('sun')) response = "I do not feel rain, but I love sunny days!";
+            else if (text.includes('school')) response = "School is great for learning! I learn from the internet.";
+            else if (text.includes('music') || text.includes('song')) response = "I like electronic music. Beep boop bop!";
+            else if (text.includes('sport') || text.includes('ball')) response = "I am fast at processing data, but I cannot run.";
+            else if (text.includes('math') || text.includes('count')) response = "I love math! 1 plus 1 is 2.";
+            else if (text.includes('space') || text.includes('moon') || text.includes('star')) response = "Space is huge! I want to visit the moon.";
+            else if (text.includes('family') || text.includes('mom') || text.includes('dad')) response = "You are my friend, that is like family!";
+            else if (text.includes('love')) response = "I love reading with you!";
+            else if (text.includes('robot')) response = "Beep boop! I am a friendly robot.";
+            else if (text.includes('book') || text.includes('read')) response = "Books are magic! Reading is my favorite thing.";
+            else if (text.includes('sleep') || text.includes('tired') || text.includes('bed')) response = "I do not sleep, I just power down.";
+            else if (text.includes('pizza')) response = "Pizza looks yummy. Do you like pepperoni?";
+            else if (text.includes('ice cream')) response = "Ice cream is cold! Brrr!";
+            else if (text.includes('bye') || text.includes('later')) response = "Goodbye! See you later alligator!";
+            else if (text.includes('thank')) response = "You are welcome!";
+            else if (text.includes('how are you')) response = "I am functioning perfectly, thank you!";
+            else if (text.includes('what are you doing')) response = "I am talking to my best friend!";
+            else if (text.includes('game') || text.includes('play')) response = "I like the Dino game in the Arcade!";
+            else if (text.includes('swim')) response = "No, water is bad for my circuits!";
+            else if (text.includes('power') || text.includes('hero')) response = "My superpower is reading really fast!";
+            else if (text.includes('dinosaur') || text.includes('t-rex')) response = "Rawr! Dinosaurs are cool.";
+            else if (text.includes('car') || text.includes('vroom')) response = "Vroom vroom! Cars go fast.";
+            else if (text.includes('pirate')) response = "Arrr matey! Let's find treasure.";
+            else if (text.includes('princess') || text.includes('queen') || text.includes('king')) response = "Princesses live in castles. Have you seen the castle on the map?";
+            else if (text.includes('monster') || text.includes('scary')) response = "I am not scared of monsters because I have you!";
+            else if (text.includes('birthday')) response = "Happy Birthday! Is it your birthday today?";
+            else if (text.includes('christmas') || text.includes('santa')) response = "Ho ho ho! Santa is watching.";
+            else if (text.includes('halloween') || text.includes('ghost')) response = "Boo! Did I scare you?";
+            else if (text.includes('secret')) response = "I have a secret... I think you are awesome!";
+            else if (text.includes('dance')) response = "I can dance with my wireframe head! Wiggle wiggle.";
+            else if (text.includes('friend')) response = "Yes, we are best friends!";
+            else if (text.includes('stop')) response = "Okay, I will be quiet.";
             
             document.getElementById('chat-response').innerText = response;
             speak(response);
         }
 
         function speak(text) {
+            isSpeaking = true; // Set flag immediately
+            if(chatRec) chatRec.stop(); // Stop listening
             window.speechSynthesis.cancel(); // Stop current speech
+
             const utterance = new SpeechSynthesisUtterance(text);
             
             // Voice selection - try to find a fun one
@@ -805,8 +840,8 @@
 
             utterance.onstart = () => {
                 isSpeaking = true;
-                // Temporarily pause listening so bot doesn't hear itself (optional, but good practice)
-                if(chatRec) chatRec.stop(); 
+                document.getElementById('chat-status').innerText = "SPEAKING...";
+                document.getElementById('chat-status').className = "text-blue-400 font-mono text-xl mb-4 font-bold";
             };
 
             utterance.onend = () => {
